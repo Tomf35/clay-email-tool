@@ -18,5 +18,7 @@ services:
         sync: false
       - key: REVIEW_AUTH_PASSWORD
         sync: false
+      - key: CLAY_WRITEBACK_URL
+        sync: false
       - key: DB_PATH
         value: /data/app.db

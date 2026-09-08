@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Clay Email Review</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Clay Email Review Queue</h1>
+    <div class="filters">
+      <label for="statusFilter">Status:</label>
+      <select id="statusFilter">
+        <option value="">All</option>
+        <option value="pending_review" selected>Pending review</option>
+        <option value="sent_to_destination">Sent to destination</option>
+        <option value="rejected">Rejected</option>
+        <option value="superseded">Superseded</option>
+      </select>
+      <button id="refreshBtn">Refresh</button>
+    </div>
+  </header>
+
+  <main id="app">
+    <p id="queueError" class="error-message hidden"></p>
+    <section id="queueView">
+      <table id="queueTable">
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Contact</th>
+            <th>Signal summary</th>
+            <th>Steps</th>
+            <th>Status</th>
+            <th>Generated</th>
+          </tr>
+        </thead>
+        <tbody id="queueBody"></tbody>
+      </table>
+      <p id="emptyState" class="empty hidden">No sequences found for this filter.</p>
+    </section>
+
+    <section id="detailView" class="hidden">
+      <button id="backBtn">&larr; Back to queue</button>
+      <div class="detail-grid">
+        <div class="signal-panel">
+          <h2>Signal context</h2>
+          <div id="signalFields"></div>
+          <h3>Audit log</h3>
+          <ul id="auditLog"></ul>
+        </div>
+        <div class="sequence-panel">
+          <h2>Sequence <span id="sequenceStatusBadge" class="badge"></span></h2>
+
+          <div id="emailCards"></div>
+
+          <section class="linkedin-section">
+            <h3>LinkedIn sequence</h3>
+            <div id="connectionRequestLine" class="connection-request-line"></div>
+            <div id="linkedinCards"></div>
+          </section>
+
+          <section class="coldcall-section">
+            <h3>Cold call opener <span id="coldCallStatusBadge" class="badge"></span></h3>
+            <div class="coldcall-card">
+              <label>Beat 1 — what you noticed</label>
+              <textarea id="coldCallBeat1" rows="2"></textarea>
+              <label>Beat 2 — the pain</label>
+              <textarea id="coldCallBeat2" rows="2"></textarea>
+              <label>Beat 3 — open question</label>
+              <textarea id="coldCallBeat3" rows="2"></textarea>
+              <div class="email-card-actions">
+                <button id="coldCallSaveBtn">Save edit</button>
+                <input id="coldCallRegenNote" type="text" placeholder="Optional note for regenerating the cold call opener" />
+                <button id="coldCallRegenBtn">Regenerate cold call opener</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="research-section">
+            <h3>Research and personalization</h3>
+            <div id="personalizationTierBlock"></div>
+            <div id="personalizationNotesBlock"></div>
+            <div id="companyResearchBlock"></div>
+          </section>
+
+          <div class="sequence-actions">
+            <div class="actions">
+              <button id="approveSequenceBtn" class="btn-approve">Approve sequence</button>
+            </div>
+            <div class="actions-secondary">
+              <div class="regen-block">
+                <input id="regenSequenceNote" type="text" placeholder="Optional note for whole-sequence regeneration" />
+                <button id="regenerateSequenceBtn">Regenerate whole sequence</button>
+              </div>
+              <div class="reject-block">
+                <input id="rejectReason" type="text" placeholder="Reason for rejection" />
+                <button id="rejectSequenceBtn" class="btn-reject">Reject sequence</button>
+              </div>
+            </div>
+          </div>
+          <p id="actionMessage" class="action-message"></p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

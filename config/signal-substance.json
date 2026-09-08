@@ -1,0 +1,287 @@
+{
+  "_meta": {
+    "description": "Mintago signal-substance playbook. Keyed by signal_type -> persona -> company size band. Used by the prompt builder to inject only the relevant guidance for a given signal, so the model reasons about what this specific contact likely cares about right now, rather than writing a generic benefits pitch.",
+    "size_bands": [
+      "11-50",
+      "51-100",
+      "101-150",
+      "151-200",
+      "201-250",
+      "250+"
+    ],
+    "personas": [
+      "HR",
+      "Finance",
+      "Ops",
+      "CEO"
+    ],
+    "status": "active — layered in as supplementary persona/company-size context alongside config/claygent-prompt.md"
+  },
+  "hr_recent_change": {
+    "label": "HR Leaders UK | Recent Changes",
+    "description": "A senior HR/People/Reward leader has just joined or changed role at this company. They're reviewing what they've inherited, not yet committed to any course of action \u2014 this is an orientation period, not a moment of decided change.",
+    "primary_persona": "HR",
+    "personas": {
+      "HR": {
+        "11-50": "They're likely stepping into a role where they're the first or only person with \"people\" in their remit \u2014 so the review isn't just \"what's the state of the current system,\" it's \"there may be no system at all yet.\" Early priority is understanding what, if anything, exists before building from scratch.",
+        "51-100": "Likely the first dedicated HR hire, arriving right as the company crosses the classic 50-person inflection point. They're reviewing what's been running informally while also standing up a management layer for the first time \u2014 the review and the build-out are happening at once.",
+        "101-150": "Stepping into a seat where retention is already becoming as hard as hiring and communication is starting to break down. Their review will likely surface that informal processes (onboarding, reviews) haven't kept pace with growth \u2014 probably the first thing on their list to formalise.",
+        "151-200": "Arriving just as the company crosses the ~150-person threshold where informal coordination stops working. Their review is likely to find real inconsistency across teams that predates them \u2014 an obvious, visible problem to tackle early rather than something subtle they need to dig for.",
+        "201-250": "Likely inheriting a function where the harder structural problems are already solved, and the review surfaces accumulated tooling/process debt from a fast climb through 100-200 \u2014 several disconnected systems added one at a time. Early priority is more likely cleanup than capability-building.",
+        "250+": "Stepping into a team with named specialisms already in place. The review is about consistency of experience and where duplication or inconsistency has crept in across a large population \u2014 less \"what's missing,\" more \"what's not working smoothly at this scale.\""
+      }
+    }
+  },
+  "finance_recent_change": {
+    "label": "Finance Leaders UK | Recent Changes",
+    "description": "A new CFO/Finance Director has just joined this company. Reviewing cost lines, including payroll/NI, is a natural, expected part of the first few months in the seat \u2014 not a signal they've already found or decided anything.",
+    "primary_persona": "Finance",
+    "personas": {
+      "Finance": {
+        "11-50": "Likely stepping into a solo or founder-adjacent finance role. Their review is really \"what's the actual cost structure here,\" since there may be minimal financial infrastructure to review yet.",
+        "51-100": "Arriving right at the point where a company should typically have both a controller function and a dedicated finance lead \u2014 they may be building that structure for the first time as part of their review, not just assessing an existing one.",
+        "101-150": "Inheriting a role where payroll is already the largest controllable cost line. Their review is likely to focus quickly on forecast reliability \u2014 whether the numbers they've inherited actually hold up.",
+        "151-200": "Stepping into a function that's professionalising past the 150-person threshold. Budget variance analysis is probably becoming more formal right as they arrive, so their review naturally includes deciding how precisely to track lines like NI.",
+        "201-250": "Likely inheriting FP&A-style forecasting that's already partially built, and possibly a partial salary sacrifice setup (pension-only) they didn't build themselves. Their review would naturally ask whether it's been extended as far as it could be.",
+        "250+": "Stepping into a function where the NI bill is already a board-level number. Their review is about governance and audit-readiness of a mechanism that likely already exists, not about whether one should exist."
+      }
+    }
+  },
+  "open_jobs": {
+    "label": "HR & Finance Open Jobs",
+    "description": "The company is actively hiring its own HR or Finance leadership role. While that seat sits empty, whatever it owns is either on hold or being covered informally \u2014 there may not be a clearly-defined \"current setup\" being actively managed at all. Route to whichever function the open role sits in for the primary persona (HR or Finance); the Ops and CEO sections cover how someone in those seats is likely reacting to the same vacancy, in case either becomes the contact instead.",
+    "primary_persona": "role_routed",
+    "routing_note": "If the open role itself is HR, use personas.HR. If the open role itself is Finance, use personas.Finance. Ops and CEO apply regardless of which role is open.",
+    "personas": {
+      "HR": {
+        "11-50": "If it's the first HR hire being recruited, whatever \"people\" admin exists is currently being absorbed by a generalist or the founder \u2014 the incoming hire is walking into genuine absence, not neglect.",
+        "51-100": "This is close to the classic first-HR-hire window regardless of the vacancy \u2014 an open role here likely means the function is being built for the first time, and whatever's been running has been ad hoc.",
+        "101-150": "An open HR seat here is more unusual, since a generalist team likely already exists \u2014 it may signal someone left during a period where retention was already getting harder, which is itself worth being curious about.",
+        "151-200": "A vacancy here likely means a second specialist role (recruiter/HR ops) has been left unfilled while the company crossed the ~150-person structural threshold \u2014 a notably bad time for that gap to exist.",
+        "201-250": "An open role at this size likely means whatever tooling/process debt has accumulated through 100-200 is currently unowned \u2014 the incoming hire will inherit a cleanup job, not a blank slate.",
+        "250+": "Rare for a seat to sit open at this size \u2014 likely a specialist role (e.g. comp & benefits) in a team that otherwise has named specialisms elsewhere, meaning one specific area of consistency is currently unmanaged."
+      },
+      "Finance": {
+        "11-50": "An open finance role here likely means the founder is currently running payroll personally and actively trying to hand it off \u2014 whoever fills it inherits a genuinely blank financial infrastructure.",
+        "51-100": "This lines up closely with when a company should have both a controller and a finance lead in place \u2014 an open role here means that structure is being built for the first time, live, right now.",
+        "101-150": "An open seat here means forecast reliability \u2014 already the main test of finance at this size \u2014 currently has no one directly responsible for it.",
+        "151-200": "A vacancy here likely means budget variance tracking, which should be formalising at this size, currently isn't being owned by anyone.",
+        "201-250": "An open role likely means partially-built salary sacrifice/FP&A infrastructure is sitting unmanaged, mid-project.",
+        "250+": "Rare and notable \u2014 likely means a board-level cost line (NI) currently has a governance gap."
+      },
+      "Ops": {
+        "11-50": "An open leadership req in HR or Finance is probably something they're watching closely, since they're likely the one currently absorbing whatever that role should be doing.",
+        "51-100": "They probably flagged the need for this hire in the first place, given they're usually the one who first notices cross-functional gaps at this size \u2014 the open req is likely a direct outcome of something they raised.",
+        "101-150": "They're probably managing the handover risk of whatever's been running without a dedicated owner, and are likely eager for the hire to land so reconciliation work can be handed off.",
+        "151-200": "They're probably feeling the absence of that seat acutely, since this is exactly the size where disconnected systems start compounding \u2014 an unfilled HR/Finance leadership role adds directly to that burden.",
+        "201-250": "A consolidation project they're running is probably partly blocked or slowed by the vacancy, since a fragmentation-fixing initiative usually needs the relevant function lead in place to sign off.",
+        "250+": "An open leadership req this late is unusual and probably means a genuine transition (departure, restructure) they're managing operational continuity around, more than a growth-driven vacancy."
+      },
+      "CEO": {
+        "11-50": "They're very likely running the hiring process for this role personally, and probably feel the gap directly since they're covering it themselves in the meantime.",
+        "51-100": "They likely see this hire as a first real delegation of a function they've been holding onto \u2014 the vacancy period is probably the last stretch of them being personally responsible for HR/Finance admin.",
+        "101-150": "They're probably aware the vacancy is adding risk during an already difficult scaling stretch, and likely want this filled quickly to reduce that exposure.",
+        "151-200": "They're probably conscious the vacancy is landing at a particularly bad structural moment (crossing ~150), compounding whatever else is shifting internally.",
+        "201-250": "They likely see the hire as part of a broader consolidation and cost-discipline push, not an isolated staffing decision.",
+        "250+": "They're probably several steps removed from this hire personally, delegating it fully \u2014 their interest is continuity and risk during the transition, not the hire itself."
+      }
+    }
+  },
+  "topic_intent": {
+    "label": "UK Topic Intent",
+    "description": "Someone at the company is actively researching a specific, identifiable topic area right now \u2014 a live, current interest, not a dormant or assumed need. The topic itself decides which persona is relevant (salary sacrifice/NI/payroll -> Finance; benefits strategy/EVP/engagement -> HR; admin/vendor consolidation -> Ops; cost reduction/ROI -> CEO/MD). Stay honest that the topic is known but the specific reasoning behind it isn't.",
+    "primary_persona": "topic_routed",
+    "routing_note": "Route by the researched topic itself, not by the contact's title: NI/payroll/salary sacrifice topics -> Finance guidance; benefits strategy/EVP/wellbeing topics -> HR guidance; admin/vendor consolidation topics -> Ops guidance; cost reduction/ROI topics -> CEO guidance.",
+    "personas": {
+      "Finance": {
+        "11-50": "Likely researching this because they're personally exposed to the cost and looking for the next lever after Employment Allowance.",
+        "51-100": "Likely researching this while building financial infrastructure properly for the first time \u2014 the research is probably feeding directly into a first real cost model.",
+        "101-150": "Likely researching this to firm up forecast reliability, since payroll is becoming the largest controllable cost line at this size.",
+        "151-200": "Likely researching this to support budget variance tracking that's becoming more formal \u2014 wanting NI treated as a distinct, trackable line.",
+        "201-250": "Likely researching this to check whether a partial setup (often pension-only) should be extended further.",
+        "250+": "Likely researching this from a governance/audit angle on a mechanism that already exists, not to decide whether to start one."
+      },
+      "HR": {
+        "11-50": "Likely researching this solo, looking for a starting point rather than comparing vendors in depth yet.",
+        "51-100": "Likely researching this while building the function for the first time \u2014 probably comparing a few basic options rather than running a full evaluation.",
+        "101-150": "Likely researching this to formalise onboarding or reviews as retention starts becoming as hard as hiring.",
+        "151-200": "Likely researching this to build real structure as informal, everyone-knows-everyone coordination breaks down.",
+        "201-250": "Likely researching this to fix accumulated fragmentation or inconsistency in a function that's otherwise already built out.",
+        "250+": "Likely researching this to maintain consistency across a large team where specialisms already exist \u2014 refinement, not construction."
+      },
+      "Ops": {
+        "11-50": "Likely researching this as the admin load on a generalist wearing several hats becomes newly unsustainable.",
+        "51-100": "Likely researching this soon after being brought in specifically to own a cross-functional admin mess that's starting to compound.",
+        "101-150": "Likely researching this as reconciliation pain from tools bolted on one at a time is actively rising.",
+        "151-200": "Likely researching this as several disconnected systems become clearly visible and costly to maintain.",
+        "201-250": "Likely researching this as part of a planned, budgeted consolidation initiative rather than an ambient frustration.",
+        "250+": "Likely researching this from a risk/compliance angle at scale, not out of day-to-day admin annoyance."
+      },
+      "CEO": {
+        "11-50": "Likely researching this personally, with benefits framed as a hiring lever for a small team competing without an established brand.",
+        "51-100": "Likely researching this while living the shift from doing the work themselves to building the organisation that does it.",
+        "101-150": "Likely researching this alongside real turnover risk at the leadership layer, as the team that got them here starts changing.",
+        "151-200": "Likely researching this as they sense a structural shift happening in how the company runs, even without a clear name for it yet.",
+        "201-250": "Likely researching this from a cross-functional cost and consolidation angle, since the harder scaling problems are largely solved by now.",
+        "250+": "Likely researching this from a systemic cost/risk angle, with the expectation of delegating whatever comes of it."
+      }
+    }
+  },
+  "funding_events": {
+    "label": "UK Funding Events",
+    "description": "The company has recently raised money. Whoever's driving that is thinking about how the organisation needs to grow to match the new resources. Benefits/reward consistency is a downstream consequence that hasn't necessarily been connected yet \u2014 it needs to be made, not assumed. Primary persona is usually CEO/Founder/MD; the other sections cover how HR, Finance, or Ops would likely experience the same raise if either becomes the contact instead.",
+    "primary_persona": "CEO",
+    "personas": {
+      "CEO": {
+        "11-50": "A raise at this size is existential-feeling \u2014 they're likely personally deciding how to spend it, and benefits are one of many first-time \"grown-up\" decisions being made for the first time, competing for early talent without an established brand.",
+        "51-100": "The raise likely funds crossing the classic 50-person inflection point deliberately (first managers, first real systems) \u2014 they're probably thinking about hiring plans more than retention yet, since the team is still being built out.",
+        "101-150": "The raise is likely funding the hardest stretch of scaling \u2014 building a leadership team that may not be the one that got them here. Turnover risk at the leadership layer is a live, funded concern now, not a hypothetical.",
+        "151-200": "The raise likely coincides with crossing the ~150-person structural threshold \u2014 they may be aware something is changing in how the company runs, funded growth accelerating a shift that was coming anyway.",
+        "201-250": "The raise at this size is more likely funding consolidation and scale rather than survival \u2014 cost discipline and consistency are probably already on the agenda independent of the raise, which just gives more room to act on it.",
+        "250+": "A raise this late is board-level capital allocation \u2014 their attention is on systemic growth and risk, not on connecting the raise to any single people-process gap."
+      },
+      "HR": {
+        "11-50": "A raise here probably means the founder is about to hire fast for the first time \u2014 HR (often the founder themselves) is likely bracing for a hiring sprint with no infrastructure yet.",
+        "51-100": "The raise likely funds crossing the 50-person inflection point \u2014 HR is probably being asked to help build the management layer and hiring pipeline the funding now enables.",
+        "101-150": "The raise is probably funding a leadership build-out \u2014 HR is likely managing retention risk at the leadership layer as new senior hires join alongside existing staff.",
+        "151-200": "The raise likely accelerates the company past the ~150-person threshold faster than it would have organically \u2014 HR is probably racing to formalise process before informal coordination fully breaks.",
+        "201-250": "The raise is probably funding consolidation and scale rather than survival \u2014 HR likely has more budget to fix fragmentation now, funded by the round.",
+        "250+": "The raise this late is likely funding a specific strategic push (new market, acquisition) \u2014 HR's concern is delivering a consistent experience at a step-change pace."
+      },
+      "Finance": {
+        "11-50": "The raise means Finance (often the founder or a first hire) suddenly has real capital to manage and probably needs financial infrastructure fast \u2014 NI/payroll modelling becomes urgent as hiring ramps.",
+        "51-100": "The raise likely accelerates the standard controller-plus-finance-lead build-out \u2014 Finance is probably modelling headcount cost scenarios directly tied to how the funding will be deployed.",
+        "101-150": "The raise probably makes payroll cost forecasting more visible and more scrutinised, since investors will want to see it modelled properly.",
+        "151-200": "The raise likely means budget variance tracking becomes a genuine reporting requirement (to the board or investors), not just internal hygiene.",
+        "201-250": "The raise is probably enabling Finance to extend a partial salary sacrifice setup as part of tidying up ahead of further scale.",
+        "250+": "The raise at this size is probably a growth/expansion round where Finance's job is precision and governance of an already-large payroll, now under more investor scrutiny."
+      },
+      "Ops": {
+        "11-50": "The raise probably means whoever's doing Ops-type admin (often the founder or a generalist) is about to be tested by fast hiring with no infrastructure.",
+        "51-100": "The raise likely funds the first dedicated Ops hire, brought in specifically to build infrastructure to match the new pace of growth.",
+        "101-150": "The raise probably accelerates onboarding volume faster than existing ad hoc tools can handle, straining Ops directly.",
+        "151-200": "The raise likely pushes the company past the ~150 threshold faster, meaning Ops has less runway than usual to fix disconnected systems before they become a real problem.",
+        "201-250": "The raise probably funds a formal consolidation project Ops has wanted to run for a while.",
+        "250+": "The raise at this size is probably funding a specific expansion Ops needs to support without proportionally growing headcount."
+      }
+    }
+  },
+  "cost_restructuring": {
+    "label": "UK Cost, Restructuring & Efficiency Signals",
+    "description": "The company is under real, active pressure to reduce costs or run more efficiently. Whoever owns that pressure needs existing spend to work harder right now, not to take on anything new. HANDLE WITH CARE \u2014 this often correlates with redundancies, so framing must stay constructive and never seem to capitalise on hardship. Primary persona is usually Finance, sometimes Ops; HR and CEO/MD are covered too in case either becomes the contact.",
+    "primary_persona": "Finance",
+    "sensitivity_note": "This signal category often correlates with redundancies. The generated email must stay constructive and supportive in tone, never triumphant, urgent-sounding, or as if capitalising on the company's hardship.",
+    "personas": {
+      "Finance": {
+        "11-50": "Cost pressure here is probably existential, not strategic \u2014 whoever's running payroll (often the founder) is looking for any lever, and Employment Allowance plus salary sacrifice are likely the only tools not already in use.",
+        "51-100": "A relatively new finance function is likely under pressure to prove its worth immediately by finding savings \u2014 an NI-efficiency lever that requires no new spend is probably very welcome right now.",
+        "101-150": "Cost pressure compounds the existing challenge of forecast reliability \u2014 this person needs the numbers to hold up under scrutiny more than usual right now, since finance is probably being watched closely.",
+        "151-200": "Formal budget variance tracking is likely already showing the cost pressure clearly \u2014 this person can probably point to the exact number a saving would offset, making a concrete NI figure land unusually well right now.",
+        "201-250": "If salary sacrifice is only partially implemented (pension-only), cost pressure is a strong moment to push extending it, since the ask is \"get more from what you already have,\" not \"add something new.\"",
+        "250+": "At board level, cost pressure makes governance/precision of an existing NI mechanism even more visible \u2014 a moment to demonstrate the mechanism is being run as tightly as possible, not to introduce anything new."
+      },
+      "Ops": {
+        "11-50": "Cost pressure probably means Ops (often a generalist) has to justify every tool and process \u2014 anything free of new spend is the only kind of fix that's realistic.",
+        "51-100": "Cost pressure likely sharpens whatever cross-functional admin mess Ops was already flagging into an active cost-reduction case.",
+        "101-150": "Cost pressure probably means Ops needs to show quantified savings from any change, not just efficiency gains, to get anything approved.",
+        "151-200": "Cost pressure likely accelerates a vendor consolidation case Ops may have already been building, since cost-cutting initiatives usually surface fragmented tooling spend directly.",
+        "201-250": "Cost pressure probably turns an informal consolidation preference into a formally budgeted, urgent initiative.",
+        "250+": "Cost pressure at this scale probably means Ops needs to demonstrate risk reduction alongside cost reduction, since large-scale cuts increase scrutiny on remaining processes."
+      },
+      "HR": {
+        "11-50": "Cost pressure here probably means HR (often solo or the founder) has no room to add anything and needs any relief to come at zero incremental cost.",
+        "51-100": "Cost pressure likely means a newly-built HR function is being asked to do more with the same or less \u2014 an efficient, no-extra-admin benefits angle helps them look effective under scrutiny.",
+        "101-150": "Cost pressure probably means HR can't add headcount to help with growing admin, making anything that reduces manual work directly valuable right now.",
+        "151-200": "Cost pressure likely means the second HR specialist hire that would normally happen here is delayed \u2014 anything that reduces admin burden compensates for that gap.",
+        "201-250": "Cost pressure probably sharpens the case for consolidating fragmented tools, since consolidation itself often reduces cost, not just admin time.",
+        "250+": "Cost pressure at this scale probably puts HR's own budget under review \u2014 a consolidation angle that also reduces vendor spend, not just admin time, likely lands better than a pure wellbeing pitch right now."
+      },
+      "CEO": {
+        "11-50": "Cost pressure here is probably personal and immediate for the founder \u2014 any lever that doesn't cost more money is worth hearing about right now.",
+        "51-100": "Cost pressure likely means the founder/MD is reviewing every cost line personally as the company tries to extend its runway or protect margin.",
+        "101-150": "Cost pressure probably adds urgency to leadership decisions that were already difficult during this scaling stretch \u2014 cost discipline and people risk are colliding.",
+        "151-200": "Cost pressure likely coincides with the structural shift already happening at this size, making this a genuinely stretched moment for the CEO/MD.",
+        "201-250": "Cost pressure probably reinforces a consolidation and discipline agenda the CEO/MD was already pursuing.",
+        "250+": "Cost pressure at board level probably means systemic cost and risk framing lands directly \u2014 the CEO/MD needs credible, precise numbers, not a general efficiency pitch."
+      }
+    }
+  },
+  "headcount_growth": {
+    "label": "UK Headcount Growth",
+    "description": "The company is growing quickly enough that informal systems are being tested. What the relevant person cares about splits on where they are in that growth: still actively hiring means the worry is finding people; growth that's already landed means the worry shifts to keeping them. Persona-agnostic at the company level \u2014 use whichever persona matches the actual contact (HR, Finance, Ops, or CEO/MD).",
+    "primary_persona": "contact_matched",
+    "personas": {
+      "HR": {
+        "11-50": "If growth is happening right at this size, they're likely absorbing it directly with no support \u2014 the growth itself may be what's forcing them to become a \"real\" HR function for the first time.",
+        "51-100": "Growth here likely means standing up process and handling the headcount increase at the same time \u2014 the two priorities aren't sequential, they're simultaneous.",
+        "101-150": "Growth into this bracket is probably the proximate cause of retention becoming as hard as hiring \u2014 this signal is likely directly responsible for that shift, not just coincidental with it.",
+        "151-200": "Growth crossing the ~150 threshold is probably the direct trigger for structural strain (informal coordination breaking) \u2014 this is likely the most acute version of that priority they'll experience.",
+        "201-250": "If growth is still active here, it's likely compounding existing tooling debt faster than it can be cleaned up \u2014 consolidation priority is competing directly with more onboarding volume.",
+        "250+": "Growth this late is unusual and likely means an acquisition or a deliberate push rather than organic scaling \u2014 consistency priority is being tested by a step change, not gradual drift."
+      },
+      "Finance": {
+        "11-50": "Growth means NI cost is rising in absolute terms for the first time in a noticeable way \u2014 likely the first time this person has had to think about NI-per-hire at all.",
+        "51-100": "Growth here is probably what's forcing the shift from \"no real finance function\" to \"building one properly\" \u2014 the signal and the priority are directly connected.",
+        "101-150": "Growth is likely what's pushing payroll into \"largest controllable cost line\" territory right now \u2014 forecast reliability is being tested in real time by the growth itself.",
+        "151-200": "Growth crossing 150 likely means budget variance is becoming visible in a new way \u2014 this may be the first time NI shows up as a distinct, named variance driver rather than background noise.",
+        "201-250": "If growth is still happening, whatever salary sacrifice is partially in place is being outgrown \u2014 extending it is probably more urgent now than at a stable headcount.",
+        "250+": "Growth this late likely means multiple pay bands and functions are compounding fast \u2014 precision of the NI mechanism is being tested by increasing scale, not just its existence."
+      },
+      "Ops": {
+        "11-50": "Growth is probably what's making the \"wearing many hats\" reality newly unsustainable \u2014 this may be the first moment it's become a visible problem rather than background truth.",
+        "51-100": "Growth is likely the direct reason a dedicated Ops-type role now exists or was just created \u2014 the signal and the hire are probably connected.",
+        "101-150": "Growth is probably outpacing whatever ad hoc tools have been bolted on \u2014 reconciliation pain is likely rising in real time alongside headcount.",
+        "151-200": "Growth crossing 150 is probably the direct cause of the disconnected-systems problem becoming visible \u2014 this is likely the acute moment, not a slow drift.",
+        "201-250": "If growth continues, vendor consolidation is competing directly with onboarding volume for this person's time \u2014 both priorities are live simultaneously.",
+        "250+": "Growth this late likely means compliance/audit risk is rising with each new hire added to an already-large, already-complex base \u2014 the systemic-risk priority is being tested directly by the growth itself."
+      },
+      "CEO": {
+        "11-50": "Growth this early is probably the founder's first real signal that they need a \"company,\" not just a team \u2014 benefits become a hiring-competitiveness question for the first time.",
+        "51-100": "Growth is very likely the direct cause of the classic 50-person inflection point being crossed right now \u2014 this is probably the most acute version of \"doing the work vs building the organisation\" they'll experience.",
+        "101-150": "Growth is probably straining the leadership team directly \u2014 turnover risk at that layer is likely rising in real time, not a background worry.",
+        "151-200": "Growth crossing 150 is probably the direct trigger for the \"something has shifted\" awareness \u2014 this may be the most legible moment to name that shift.",
+        "201-250": "If growth continues here, consolidation and cost discipline are competing directly with continued scaling \u2014 a genuinely busy, high-stakes moment for the CEO/MD.",
+        "250+": "Growth this late is unusual and notable \u2014 likely a deliberate strategic push (acquisition, new market) rather than organic drift, meaning systemic risk is rising by design, not by accident."
+      }
+    }
+  },
+  "high_hiring_velocity": {
+    "label": "UK High Hiring Velocity",
+    "description": "The company has many roles open at once, right now. The visible, immediate priority is candidate-facing competitiveness \u2014 whether the offer stands out against other employers hiring for similar roles at the same time \u2014 not internal admin efficiency. Primary persona is usually HR or Ops, sometimes CEO/MD at the smallest sizes; Finance is covered too in case they become the contact.",
+    "primary_persona": "HR",
+    "personas": {
+      "HR": {
+        "11-50": "High-volume hiring at this size is probably existential for whoever's doing it solo \u2014 every open role competes for their limited time, and the offer needs to work hard with no employer brand to lean on.",
+        "51-100": "Volume hiring here likely means building process and competing for candidates at the same time \u2014 the offer's competitiveness matters because there's no reputation yet to coast on.",
+        "101-150": "Volume hiring at this size is probably straining a small HR team's capacity to make every offer feel considered \u2014 consistency across many simultaneous hires is the real risk.",
+        "151-200": "Volume hiring while crossing the ~150 threshold likely means the offer experience is becoming inconsistent right when it matters most \u2014 new hires arriving fast may get a different experience than earlier ones.",
+        "201-250": "Volume hiring here is probably being absorbed by a more specialised team, so the concern shifts to whether the offer differentiates well against other, better-resourced employers competing for the same roles.",
+        "250+": "Volume hiring this late likely means a big, deliberate push (new site, new function) \u2014 the concern is whether a scaled, consistent offer can be delivered fast without diluting quality."
+      },
+      "Ops": {
+        "11-50": "High-volume hiring is probably landing directly on whoever's wearing the Ops hat, since there's no dedicated recruiting infrastructure yet \u2014 onboarding logistics for many new starters at once is a real operational strain.",
+        "51-100": "High-volume hiring likely means Ops is building onboarding process for the first time under real time pressure, as the pace of hiring outstrips what's been set up so far.",
+        "101-150": "High-volume hiring probably exposes whatever ad hoc onboarding tools exist faster than steady hiring would, since more starters means more manual cross-checking.",
+        "151-200": "High-volume hiring likely strains the disconnected systems already causing reconciliation pain at this size \u2014 every new starter adds to a backlog that was already building.",
+        "201-250": "High-volume hiring probably runs through a more specialised setup by now, so the concern shifts to consistency and speed at volume rather than basic capability.",
+        "250+": "High-volume hiring at this size is probably a planned, resourced initiative \u2014 Ops's concern is efficiency and consistency at genuine scale, not day-to-day admin friction."
+      },
+      "CEO": {
+        "11-50": "If the founder is personally posting the roles, high-volume hiring is probably the most visible, urgent priority in the business right now \u2014 the benefits offer is one of the only levers they can move fast.",
+        "51-100": "The founder/MD likely sees high-volume hiring as the moment the company stops feeling small \u2014 competitive benefits become part of proving that shift to candidates.",
+        "101-150": "The founder/MD probably worries about diluting culture and consistency while hiring this fast, alongside the leadership-layer strain already happening at this size.",
+        "151-200": "The founder/MD likely senses the structural shift already underway at ~150 is being sped up further by the hiring pace itself.",
+        "201-250": "The founder/MD probably delegates most of this to HR/Ops by now, with their own focus on whether the pace of hiring matches the strategic plan behind it.",
+        "250+": "The founder/MD is likely far removed from individual hiring decisions \u2014 their concern is whether the offer stays consistent and competitive at volume without their direct oversight."
+      },
+      "Finance": {
+        "11-50": "High-volume hiring here probably means Finance (often the founder) is watching payroll and NI cost rise fast and wants to know the actual cost-per-hire before committing to more offers.",
+        "51-100": "High-volume hiring likely means Finance is building headcount cost models faster than usual, since multiple offers are being extended at once.",
+        "101-150": "High-volume hiring probably strains forecast reliability directly, since payroll costs are changing every few weeks rather than gradually.",
+        "151-200": "High-volume hiring likely makes budget variance tracking urgent in real time, since the NI bill is moving quickly and visibly.",
+        "201-250": "High-volume hiring probably tests whatever partial salary sacrifice setup exists, since new hires are being onboarded faster than the scheme may be built to handle smoothly.",
+        "250+": "High-volume hiring at this size probably means Finance needs the NI mechanism to scale cleanly across a fast-changing headcount without manual rework each time."
+      }
+    }
+  }
+}

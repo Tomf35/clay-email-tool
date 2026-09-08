@@ -1,0 +1,306 @@
+{
+  "_meta": {
+    "description": "Mintago cadence playbook. Encodes the FORM of the 4-email outbound sequence (subject/body/formatting mechanics, altitude-tier tone, persona tone-by-seniority, per-step structure) as distinct from config/signal-substance.json, which encodes the ANGLE/content of a given signal. Both are loaded into the same generation prompt as clearly separate labeled sections.",
+    "personas": [
+      "HR",
+      "Finance",
+      "Ops",
+      "CEO",
+      "MD"
+    ],
+    "altitude_tiers": [
+      "Executive",
+      "Director",
+      "Manager",
+      "IC"
+    ],
+    "notes_on_word_counts": "Steps 2-4 were specified by the architect as sentence counts (2-4 / 3-4 / 2-3 sentences) rather than word counts. Each step below carries an authoritative sentence_count_range, plus a word_count_range that is a documented approximation (~12 words/sentence average) used only for the advisory, non-blocking word-count flag computed on read. Step 1 was specified directly as a 25-50 word range and uses that as its authoritative word_count_range.",
+    "_deprecated": "Superseded by config/claygent-prompt.md as of the Claygent prompt integration. No longer used in the active generation path. Kept for reference."
+  },
+  "universal_subject_rules": {
+    "length_words": [
+      1,
+      3
+    ],
+    "case": "Title Case",
+    "tone": "neutral, factual \u2014 reads like an internal to-do item",
+    "rules": [
+      "1-3 words only",
+      "Title Case",
+      "Neutral, factual tone",
+      "No superlatives",
+      "No use of the word \"you\"",
+      "No verbs like 'increase' or 'improve'",
+      "Avoid questions",
+      "Avoid numbers",
+      "Avoid punctuation such as ? or !",
+      "Avoid first names",
+      "Only include the company name if there is an existing relationship"
+    ]
+  },
+  "universal_body_rules": {
+    "target_word_count_range": [
+      25,
+      80
+    ],
+    "peak_word_count_range": [
+      25,
+      50
+    ],
+    "rules": [
+      "Personalize against a real, verifiable signal",
+      "25-80 words target, with 25-50 being the peak/sweet spot",
+      "Write to start a conversation, not to inform",
+      "CTA must be low-friction, closed-ended, and specific enough to answer yes/no",
+      "Mobile-scannable with short paragraphs",
+      "Follow-up emails restate the original reason for reaching out before adding anything new",
+      "Never more than one open-ended question per email"
+    ],
+    "avoid": [
+      "Buzzwords, hype, superlatives",
+      "Long intros or walls of text",
+      "Multiple value props stacked in one email",
+      "Presumptive framing (turn it into a question instead)",
+      "Logo-dropping without context"
+    ]
+  },
+  "formatting_rules": {
+    "rules": [
+      "Max 2 sentences per paragraph",
+      "Blank line between every paragraph",
+      "Greeting is first name + comma only (no 'Hi'/'Hello')",
+      "Sign-off is first name only (\"Tom\") \u2014 no title, company, or signature block",
+      "Mobile-scannable with zero horizontal scroll",
+      "P.S. lines (when used) are tied to the referral ask or a callback to the original reason, one line only",
+      "Don't use bullets unless the content genuinely benefits from them"
+    ]
+  },
+  "altitude_tiers": {
+    "Executive": {
+      "titles_example": "C-suite / VP / Head",
+      "guidance": "Anchor on a company-level strategic trigger. Frame the outcome as cost, risk, or time at the org level. Offer a delegation path \u2014 an explicit way to hand this to whoever owns it day-to-day."
+    },
+    "Director": {
+      "titles_example": "Director / Senior manager who owns a function",
+      "guidance": "Anchor on the specific function or program they own, not company-wide strategy."
+    },
+    "Manager": {
+      "titles_example": "Manager running a defined process",
+      "guidance": "Anchor on the weekly process they run. Practical and tactical, not strategic."
+    },
+    "IC": {
+      "titles_example": "Individual contributor / coordinator / specialist / analyst",
+      "guidance": "Anchor on the specific task eating their day. Shortest, most casual tone of any tier."
+    }
+  },
+  "personas": {
+    "HR": {
+      "overview": "Warm, human-centered tone. Lead with specific pain points. Use a brevity + benefit framing. Keep the CTA simple.",
+      "avoid": [
+        "Transactional tone",
+        "Generic templates",
+        "Going too technical too early",
+        "An unclear ask"
+      ],
+      "tiers": {
+        "Executive": {
+          "titles_example": "CHRO / VP People / Head of People",
+          "guidance": "Company-level observation -> people challenge at their stage -> people-first outcome framing (retention/culture/manager quality). Short and human. Offer to delegate down."
+        },
+        "Director": {
+          "titles_example": "Director of People Ops / Talent / Employee Experience",
+          "guidance": "Anchor on a specific program (onboarding, performance cycles, engagement surveys, talent reviews). Use proof from a similar-stage company. Do not use 'transform your HR function' framing."
+        },
+        "Manager": {
+          "titles_example": "HR Manager / People Ops Manager / Benefits Manager",
+          "guidance": "Anchor on one workflow they run. Friendly-professional tone. Give a concrete next step, not 'thoughts?'. Short, scannable paragraphs."
+        },
+        "IC": {
+          "titles_example": "HR Generalist / Coordinator / Recruiter",
+          "guidance": "Warmest tone of the persona. Name the exact task/workflow. Tangible immediate benefit (e.g. 'saves 3 hrs/week'). Low-stakes CTA. Never imply buying authority."
+        }
+      }
+    },
+    "Finance": {
+      "overview": "Numbers, precision, and clarity. Punishes vague, hyped, or abstract language. Use outcome/numbers framing, risk-reduction/compliance relevance, direct and concise copy, and low-friction closed asks.",
+      "avoid": [
+        "Fluffy or abstract language",
+        "Multiple claims stacked together",
+        "Long intros",
+        "Aggressive selling"
+      ],
+      "tiers": {
+        "Executive": {
+          "titles_example": "CFO / VP Finance / Head of Finance / Controller",
+          "guidance": "Financial trigger (fundraise, headcount growth, office expansion, compliance deadline) -> cost/efficiency problem at that stage -> ONE contextualized proof point. Measured tone \u2014 zero hype, zero exclamation points. Offer to delegate to the day-to-day owner."
+        },
+        "Director": {
+          "titles_example": "Director of FP&A / Finance / Accounting / Treasury",
+          "guidance": "Anchor on a specific function (forecasting accuracy, budget variance, close process, reconciliation). Anchor on the visible signal. One example with real numbers."
+        },
+        "Manager": {
+          "titles_example": "Finance Manager / AP-AR Manager / Payroll Manager",
+          "guidance": "Anchor on one process they own. Quantify the friction and the outcome. Tone: a peer who found a better way. Mobile-scannable."
+        },
+        "IC": {
+          "titles_example": "Financial Analyst / Staff Accountant / AP-AR Specialist",
+          "guidance": "Shortest, plainest tone of the persona. Name the exact task eating their afternoon. No jargon, no ROI/strategy language. Goal is a conversation or an intro upward, not a close."
+        }
+      }
+    },
+    "Ops": {
+      "overview": "Responds to a NAMED, SPECIFIC process, not a category or 'workflow challenge' \u2014 vague pain-point guesses backfire more with this persona than any other. Use efficiency framing tied to a concrete workflow, short direct emails, credibility signals, and a straightforward CTA.",
+      "avoid": [
+        "Abstract strategy without a process anchor",
+        "Dense paragraphs",
+        "Multiple value props",
+        "Presumptive language \u2014 turn it into a question instead (e.g. 'How are you handling X as you scale?')"
+      ],
+      "tiers": {
+        "Executive": {
+          "titles_example": "COO / VP Ops / Head of Ops",
+          "guidance": "Company-level scaling signal (headcount growth, new products, new offices, new segments) -> operational bottleneck at that stage. Direct/efficient tone, no rapport-building preamble. Under 100 words. Offer to delegate. Ask, don't assume."
+        },
+        "Director": {
+          "titles_example": "Director of Ops / RevOps / Customer Ops",
+          "guidance": "Name a specific operational domain (onboarding workflows, data hygiene, cross-functional handoffs). One proof point. Frame the CTA as 'compare approaches'."
+        },
+        "Manager": {
+          "titles_example": "Operations Manager / Process Manager / Implementation Manager",
+          "guidance": "Anchor on one process they run. Be direct about what you solve. Quantify the outcome. Specific CTA tied to the exact workflow."
+        },
+        "IC": {
+          "titles_example": "Ops Coordinator / Analyst / Implementation Specialist",
+          "guidance": "Most casual tone of the persona. Name the exact task. No 'operational excellence' jargon. CTA can be implicit."
+        }
+      }
+    },
+    "CEO": {
+      "overview": "Company-level trigger, not departmental detail. Frame the outcome as growth, cost, risk, or time. Brevity is non-negotiable. No product features or technical detail. Always offer an explicit delegation path. Zero hype, zero exclamation points. For SME/owner-operator CEOs, a slightly more specific/tactical hook can land, while keeping the brevity and non-hyped tone.",
+      "structure": "1-line trigger/observation -> 1-line company-level implication -> 1 proof point -> CTA with a delegation option.",
+      "tiers": {
+        "Executive": {
+          "titles_example": "CEO / Founder / Owner",
+          "guidance": "Company-level trigger -> company-level implication (growth/cost/risk/time) -> one proof point -> CTA offering a delegation path. Brevity non-negotiable. No product features or technical detail. Zero hype."
+        },
+        "Director": {
+          "guidance": "Rare for this persona, but if present, treat similarly to Executive with a slightly more tactical hook, keeping brevity and non-hyped tone."
+        },
+        "Manager": {
+          "guidance": "Rare for this persona, but if present, treat similarly to Executive with a slightly more tactical hook, keeping brevity and non-hyped tone."
+        },
+        "IC": {
+          "guidance": "Rare for this persona, but if present, treat similarly to Executive with a slightly more tactical hook, keeping brevity and non-hyped tone."
+        }
+      }
+    },
+    "MD": {
+      "overview": "Managing Director. At true SME scale, an MD is often the same profile as a founder-CEO \u2014 apply the CEO guidance almost directly. Where the company has both an MD and separate ownership/a board, the MD is closer to an execution-focused 'Head of' role \u2014 lean slightly more tactical/specific than pure CEO guidance while keeping executive brevity. Because MDs at smaller companies often personally own HR/finance/ops decisions simultaneously, the strongest angle is usually the CROSS-FUNCTIONAL COST of a fragmented setup rather than a single-department pitch.",
+      "structure": "Company-stage trigger -> cross-functional cost/risk implication -> one concrete comparable-company proof point -> CTA offering a direct conversation or a path to whoever handles the day-to-day.",
+      "tiers": {
+        "Executive": {
+          "titles_example": "Managing Director",
+          "guidance": "Company-stage trigger -> cross-functional cost/risk implication (not single-department) -> one concrete comparable-company proof point -> CTA offering either a direct conversation or a path to whoever handles day-to-day. If this MD is effectively a founder-CEO at true SME scale, lean on the CEO structure directly; if there is separate ownership/a board, lean slightly more tactical/specific while keeping executive brevity."
+        },
+        "Director": {
+          "guidance": "Treat as Executive-tier guidance above; MD does not typically appear below Executive altitude."
+        },
+        "Manager": {
+          "guidance": "Treat as Executive-tier guidance above; MD does not typically appear below Executive altitude."
+        },
+        "IC": {
+          "guidance": "Treat as Executive-tier guidance above; MD does not typically appear below Executive altitude."
+        }
+      }
+    }
+  },
+  "steps": [
+    {
+      "step": 1,
+      "send_day_offset": 1,
+      "label": "cold_open",
+      "framework": "Observation -> Problem/Insight -> Proof point -> Solution -> CTA",
+      "word_count_range": [
+        25,
+        50
+      ],
+      "pitch_allowed": true,
+      "special_rules": [
+        "Open with the signal as a specific observation, not an assumption stated as fact \u2014 frame as 'curious if...' or 'am I off thinking...'",
+        "One sentence tying the observation to the likely problem",
+        "Exactly ONE proof point (a number, or a comparable company/stage) \u2014 no more",
+        "One plain-language solution sentence \u2014 no feature list",
+        "Exactly ONE closed-ended, low-friction CTA",
+        "The goal is a reply, not a meeting \u2014 do not pitch a demo"
+      ]
+    },
+    {
+      "step": 2,
+      "send_day_offset": 5,
+      "label": "resource_share",
+      "framework": "Share a neutral, non-branded resource",
+      "sentence_count_range": [
+        2,
+        4
+      ],
+      "word_count_range": [
+        20,
+        60
+      ],
+      "pitch_allowed": false,
+      "special_rules": [
+        "Reference a genuinely relevant third-party resource \u2014 NOT Mintago's own content",
+        "If no specific real resource is known/available, explicitly note that in the prompt rather than inventing a fake source or title",
+        "Briefly explain why the resource is relevant, tying back to the original signal",
+        "Soft close nodding back to email 1, e.g. 'Any thoughts on my last note?'"
+      ]
+    },
+    {
+      "step": 3,
+      "send_day_offset": 8,
+      "label": "clarification",
+      "framework": "Restate context -> Clarify what you do -> Clarify why relevant -> CTA",
+      "sentence_count_range": [
+        3,
+        4
+      ],
+      "word_count_range": [
+        30,
+        70
+      ],
+      "pitch_allowed": true,
+      "special_rules": [
+        "One sentence restating the original context/reason for reaching out",
+        "One sentence clarifying specifically what Mintago does, in plain language, no jargon",
+        "One sentence on why this is relevant to this persona/seniority specifically",
+        "End with a call-to-conversation CTA, not a meeting ask"
+      ]
+    },
+    {
+      "step": 4,
+      "send_day_offset": 12,
+      "label": "referral_exit",
+      "framework": "Name-check possible better contact -> Explain why -> Restate original reason -> Close loop",
+      "sentence_count_range": [
+        2,
+        3
+      ],
+      "word_count_range": [
+        20,
+        50
+      ],
+      "pitch_allowed": false,
+      "special_rules": [
+        "Ask if someone else at the company would be better placed to discuss this \u2014 only if plausible from the available data; otherwise use a soft 'wrong timing' exit instead",
+        "Briefly restate why you reached out originally",
+        "P.S. line nodding back to the original ask",
+        "No pressure, no urgency, no hard-breakup tone \u2014 a polite, low-pressure close"
+      ]
+    }
+  ],
+  "cross_sequence_rules": [
+    "Only steps 1 and 3 may contain anything resembling a pitch",
+    "Never restate the same observation verbatim across emails \u2014 vary phrasing",
+    "Never more than one open-ended question per email"
+  ]
+}

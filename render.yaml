@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: clay-email-tool
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    disk:
+      name: clay-email-tool-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        sync: false
+      - key: INGEST_SECRET
+        sync: false
+      - key: REVIEW_AUTH_PASSWORD
+        sync: false
+      - key: DB_PATH
+        value: /data/app.db

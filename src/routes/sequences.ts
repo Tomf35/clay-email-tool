@@ -26,6 +26,20 @@ export const sequencesRouter = Router();
 // existing email routes.
 const TERMINAL_STATUSES = new Set(["sent_to_destination", "rejected", "superseded"]);
 
+// Caps how much of a free-text field (e.g. trigger_detail) shows up in the
+// queue list summary. Clay can send an entire Claygent-style research brief
+// (thousands of characters) in a single field like trigger_detail — the
+// full text is still passed to generation untouched via the signal's raw
+// fields, this cap only affects the short one-line preview shown in the
+// sequences list so a single huge row doesn't blow out the whole table.
+const SUMMARY_FIELD_MAX_CHARS = 180;
+
+function truncateForSummary(value: unknown): string {
+  const str = String(value ?? "").trim();
+  if (str.length <= SUMMARY_FIELD_MAX_CHARS) return str;
+  return `${str.slice(0, SUMMARY_FIELD_MAX_CHARS).trimEnd()}…`;
+}
+
 function summarizeSignal(rawPayloadJson: string) {
   let raw: Record<string, unknown> = {};
   try {
@@ -33,7 +47,7 @@ function summarizeSignal(rawPayloadJson: string) {
   } catch {
     // ignore
   }
-  const trigger = [raw.trigger_type, raw.trigger_detail]
+  const trigger = [raw.trigger_type, raw.trigger_detail ? truncateForSummary(raw.trigger_detail) : undefined]
     .filter(Boolean)
     .join(": ");
   const funding = raw.funding_stage
@@ -55,7 +69,9 @@ function summarizeSignal(rawPayloadJson: string) {
     contact_name: raw.contact_name || null,
     contact_title: raw.contact_title || null,
     company_name: raw.company_name || null,
-    summary,
+    // Belt-and-braces cap on the assembled summary too, in case future
+    // fields added to the join above are similarly long-form.
+    summary: truncateForSummary(summary),
   };
 }
 

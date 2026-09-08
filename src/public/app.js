@@ -406,4 +406,120 @@ backBtn.addEventListener("click", () => {
 statusFilter.addEventListener("change", loadQueue);
 refreshBtn.addEventListener("click", loadQueue);
 
+// --- Raw signals tab ---
+//
+// A second, independent queue: pre-enrichment signal hits (e.g. from the
+// Companies House scraper) with a rule-based score, awaiting a human call
+// on whether to send them to Clay for contact-find/enrich. See
+// docs/raw-signal-pipeline.md for the full design.
+
+const rawSignalsView = document.getElementById("rawSignalsView");
+const rawSignalsBody = document.getElementById("rawSignalsBody");
+const rawSignalsEmptyState = document.getElementById("rawSignalsEmptyState");
+const rawSignalStatusFilter = document.getElementById("rawSignalStatusFilter");
+const rawSignalRefreshBtn = document.getElementById("rawSignalRefreshBtn");
+const tabSequencesBtn = document.getElementById("tabSequencesBtn");
+const tabRawSignalsBtn = document.getElementById("tabRawSignalsBtn");
+const sequenceFilters = document.getElementById("sequenceFilters");
+const rawSignalFilters = document.getElementById("rawSignalFilters");
+
+function showRawSignalError(message) {
+  const el = document.getElementById("rawSignalError");
+  if (!el) return;
+  if (!message) {
+    el.textContent = "";
+    el.classList.add("hidden");
+    return;
+  }
+  el.textContent = message;
+  el.classList.remove("hidden");
+}
+
+function scorePillClass(score) {
+  if (score >= 50) return "score-pill-high";
+  if (score >= 25) return "score-pill-mid";
+  return "score-pill-low";
+}
+
+async function loadRawSignals() {
+  try {
+    const status = rawSignalStatusFilter.value;
+    const url = "/api/raw-signals" + (status ? `?status=${encodeURIComponent(status)}` : "");
+    const res = await fetch(url);
+    if (!res.ok) {
+      let errMsg = `Failed to load raw signals (HTTP ${res.status})`;
+      try {
+        const errData = await res.json();
+        if (errData && errData.error) errMsg = errData.error;
+      } catch {
+        // ignore parse failure
+      }
+      showRawSignalError(errMsg);
+      return;
+    }
+    const data = await res.json();
+    showRawSignalError(null);
+    renderRawSignals(data.raw_signals || []);
+  } catch (err) {
+    showRawSignalError("Failed to load raw signals: " + (err && err.message ? err.message : "network error"));
+  }
+}
+
+function renderRawSignals(rows) {
+  rawSignalsBody.innerHTML = "";
+  if (rows.length === 0) {
+    rawSignalsEmptyState.classList.remove("hidden");
+    return;
+  }
+  rawSignalsEmptyState.classList.add("hidden");
+
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    const isDecided = r.status !== "new" && r.status !== "qualified";
+    tr.innerHTML = `
+      <td><span class="score-pill ${scorePillClass(r.score)}" title="${escapeHtml((r.score_reasons || []).join("; "))}">${r.score}</span></td>
+      <td>${escapeHtml(r.company_name || "—")}</td>
+      <td>${escapeHtml(r.signal_type || "—")}</td>
+      <td>${escapeHtml(r.trigger_detail || "—")}</td>
+      <td>${escapeHtml(r.trigger_date || "—")}</td>
+      <td>${escapeHtml(r.source || "—")}</td>
+      <td><span class="badge badge-${r.status}">${r.status}</span></td>
+      <td class="row-actions">
+        <button class="qualify-btn" ${isDecided ? "disabled" : ""}>Qualify</button>
+        <button class="dismiss-btn btn-reject" ${isDecided ? "disabled" : ""}>Dismiss</button>
+      </td>
+    `;
+    tr.querySelector(".qualify-btn").addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await postJson(`/api/raw-signals/${r.id}/qualify`, {});
+      loadRawSignals();
+    });
+    tr.querySelector(".dismiss-btn").addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const reason = window.prompt("Reason for dismissing (optional):") || undefined;
+      await postJson(`/api/raw-signals/${r.id}/dismiss`, { notes: reason });
+      loadRawSignals();
+    });
+    rawSignalsBody.appendChild(tr);
+  }
+}
+
+function switchTab(tab) {
+  const showRaw = tab === "raw";
+  tabSequencesBtn.classList.toggle("active", !showRaw);
+  tabRawSignalsBtn.classList.toggle("active", showRaw);
+  sequenceFilters.classList.toggle("hidden", showRaw);
+  rawSignalFilters.classList.toggle("hidden", !showRaw);
+  detailView.classList.add("hidden");
+  queueView.classList.toggle("hidden", showRaw);
+  rawSignalsView.classList.toggle("hidden", !showRaw);
+  if (showRaw) loadRawSignals();
+  else loadQueue();
+}
+
+tabSequencesBtn.addEventListener("click", () => switchTab("sequences"));
+tabRawSignalsBtn.addEventListener("click", () => switchTab("raw"));
+rawSignalStatusFilter.addEventListener("change", loadRawSignals);
+rawSignalRefreshBtn.addEventListener("click", loadRawSignals);
+
 loadQueue();

@@ -105,6 +105,23 @@ db.exec(`
     detail_text TEXT
   );
 
+  CREATE TABLE IF NOT EXISTS raw_signals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    external_id TEXT NOT NULL UNIQUE,
+    source TEXT NOT NULL,
+    raw_payload TEXT NOT NULL,
+    received_at TEXT NOT NULL,
+    company_name TEXT,
+    signal_type TEXT,
+    trigger_detail TEXT,
+    trigger_date TEXT,
+    score INTEGER NOT NULL DEFAULT 0,
+    score_reasons TEXT NOT NULL DEFAULT '[]',
+    status TEXT NOT NULL DEFAULT 'new',
+    reviewed_at TEXT,
+    reviewer_notes TEXT
+  );
+
   CREATE INDEX IF NOT EXISTS idx_sequences_signal_id ON sequences(signal_id);
   CREATE INDEX IF NOT EXISTS idx_sequences_status ON sequences(status);
   CREATE INDEX IF NOT EXISTS idx_sequence_emails_sequence_id ON sequence_emails(sequence_id);
@@ -112,6 +129,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_linkedin_messages_sequence_id ON linkedin_messages(sequence_id);
   CREATE INDEX IF NOT EXISTS idx_linkedin_messages_status ON linkedin_messages(status);
   CREATE INDEX IF NOT EXISTS idx_audit_log_sequence_id ON audit_log(sequence_id);
+  CREATE INDEX IF NOT EXISTS idx_raw_signals_status ON raw_signals(status);
+  CREATE INDEX IF NOT EXISTS idx_raw_signals_score ON raw_signals(score);
 `);
 
 export default db;

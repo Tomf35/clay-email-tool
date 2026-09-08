@@ -7,6 +7,7 @@ import "./db"; // ensure schema is initialized on boot
 import { ingestRouter } from "./routes/ingest";
 import { sequencesRouter } from "./routes/sequences";
 import { miscRouter } from "./routes/misc";
+import { rawSignalIngestRouter, rawSignalsReviewRouter } from "./routes/rawSignals";
 import { basicAuth } from "./lib/basicAuth";
 
 const app = express();
@@ -20,10 +21,12 @@ app.use(express.json({ limit: "2mb" }));
 // by Clay's webhook / the platform health checker, not a browser, and use
 // their own existing shared-secret/none mechanisms. See lib/basicAuth.ts.
 app.use("/api", ingestRouter);
+app.use("/api", rawSignalIngestRouter);
 app.use("/api", miscRouter);
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
 app.use("/api", basicAuth, sequencesRouter);
+app.use("/api", basicAuth, rawSignalsReviewRouter);
 
 app.use(basicAuth, express.static(path.join(__dirname, "..", "src", "public")));
 

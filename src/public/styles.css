@@ -76,6 +76,23 @@ body {
   letter-spacing: 0.01em;
 }
 
+.topbar-right { display: flex; align-items: center; gap: 4px; }
+.view-tabs { display: flex; gap: 4px; margin-right: 16px; }
+.view-tab {
+  border-radius: 999px 999px 0 0;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--mint-text-muted);
+  padding: 8px 16px;
+}
+.view-tab:hover { background: var(--mint-cream); color: var(--mint-navy); }
+.view-tab.active {
+  background: var(--mint-cream);
+  color: var(--mint-navy);
+  border-color: var(--mint-border);
+  border-bottom-color: transparent;
+}
+
 .filters { display: flex; gap: 8px; align-items: center; }
 .filters label { display: inline; font-size: 13px; font-weight: 600; margin: 0; color: var(--mint-text-muted); }
 
@@ -122,6 +139,26 @@ tbody tr:hover { background: var(--mint-coral-soft); }
 .badge-error { background: var(--mint-red-bg); color: var(--mint-red-text); }
 .badge-wordcount-flag { background: var(--mint-coral-soft); color: var(--mint-coral-dark); }
 .badge-tier { background: var(--mint-purple-bg); color: var(--mint-purple-text); }
+.badge-new { background: var(--mint-gray-bg); color: var(--mint-gray-text); }
+.badge-qualified { background: var(--mint-sage-bg); color: var(--mint-sage-text); }
+.badge-sent_to_clay { background: var(--mint-sky); color: var(--mint-navy); }
+.badge-dismissed { background: var(--mint-red-bg); color: var(--mint-red-text); }
+
+.score-pill {
+  display: inline-block;
+  min-width: 28px;
+  text-align: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+}
+.score-pill-high { background: var(--mint-sage-bg); color: var(--mint-sage-text); }
+.score-pill-mid { background: var(--mint-amber-bg); color: var(--mint-amber-text); }
+.score-pill-low { background: var(--mint-gray-bg); color: var(--mint-gray-text); }
+
+.row-actions { display: flex; gap: 6px; }
+.row-actions button { padding: 5px 10px; font-size: 12px; }
 
 .steps-indicator { font-family: "SFMono-Regular", Consolas, monospace; letter-spacing: 1px; color: var(--mint-navy-soft); }
 

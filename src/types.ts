@@ -103,6 +103,33 @@ export interface SignalRow {
   status: SignalStatus;
 }
 
+// --- Raw (pre-enrichment) signals ---
+//
+// These are cheap/free signal hits (e.g. from the Companies House scraper
+// under scripts/signal-sources/) captured BEFORE any contact-enrichment
+// spend. They live in their own table/queue, get a rule-based score, and
+// only the ones that clear a threshold are meant to be handed to Clay for
+// contact-find/enrich — see docs/raw-signal-pipeline.md for the full
+// design and the next-step plan for the Clay hand-off endpoint.
+export type RawSignalStatus = "new" | "qualified" | "dismissed" | "sent_to_clay";
+
+export interface RawSignalRow {
+  id: number;
+  external_id: string;
+  source: string; // e.g. "companies_house", "job_board_scan"
+  raw_payload: string; // JSON text, the full payload as received
+  received_at: string;
+  company_name: string | null;
+  signal_type: string | null;
+  trigger_detail: string | null;
+  trigger_date: string | null;
+  score: number;
+  score_reasons: string; // JSON text, string[]
+  status: RawSignalStatus;
+  reviewed_at: string | null;
+  reviewer_notes: string | null;
+}
+
 export interface SequenceRow {
   id: number;
   signal_id: number;

@@ -16,16 +16,33 @@
       <span class="brand-divider"></span>
       <span class="brand-label">Outbound Review</span>
     </div>
-    <div class="filters">
-      <label for="statusFilter">Status:</label>
-      <select id="statusFilter">
-        <option value="">All</option>
-        <option value="pending_review" selected>Pending review</option>
-        <option value="sent_to_destination">Sent to destination</option>
-        <option value="rejected">Rejected</option>
-        <option value="superseded">Superseded</option>
-      </select>
-      <button id="refreshBtn">Refresh</button>
+    <div class="topbar-right">
+      <nav class="view-tabs">
+        <button id="tabSequencesBtn" class="view-tab active">Sequences</button>
+        <button id="tabRawSignalsBtn" class="view-tab">Raw signals</button>
+      </nav>
+      <div class="filters" id="sequenceFilters">
+        <label for="statusFilter">Status:</label>
+        <select id="statusFilter">
+          <option value="">All</option>
+          <option value="pending_review" selected>Pending review</option>
+          <option value="sent_to_destination">Sent to destination</option>
+          <option value="rejected">Rejected</option>
+          <option value="superseded">Superseded</option>
+        </select>
+        <button id="refreshBtn">Refresh</button>
+      </div>
+      <div class="filters hidden" id="rawSignalFilters">
+        <label for="rawSignalStatusFilter">Status:</label>
+        <select id="rawSignalStatusFilter">
+          <option value="">All</option>
+          <option value="new" selected>New</option>
+          <option value="qualified">Qualified</option>
+          <option value="sent_to_clay">Sent to Clay</option>
+          <option value="dismissed">Dismissed</option>
+        </select>
+        <button id="rawSignalRefreshBtn">Refresh</button>
+      </div>
     </div>
   </header>
 
@@ -46,6 +63,26 @@
         <tbody id="queueBody"></tbody>
       </table>
       <p id="emptyState" class="empty hidden">No sequences found for this filter.</p>
+    </section>
+
+    <section id="rawSignalsView" class="hidden">
+      <p id="rawSignalError" class="error-message hidden"></p>
+      <table id="rawSignalsTable">
+        <thead>
+          <tr>
+            <th>Score</th>
+            <th>Company</th>
+            <th>Signal type</th>
+            <th>Trigger detail</th>
+            <th>Trigger date</th>
+            <th>Source</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="rawSignalsBody"></tbody>
+      </table>
+      <p id="rawSignalsEmptyState" class="empty hidden">No raw signals found for this filter.</p>
     </section>
 
     <section id="detailView" class="hidden">

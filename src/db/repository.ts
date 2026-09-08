@@ -4,6 +4,8 @@ import {
   GeneratedColdCallOpener,
   GeneratedCompanyResearch,
   LinkedinMessageRow,
+  RawSignalRow,
+  RawSignalStatus,
   SequenceEmailRow,
   SequenceEmailStatus,
   SequenceRow,
@@ -483,4 +485,116 @@ export function getAuditLogForSequence(sequenceId: number): AuditLogRow[] {
   return db
     .prepare("SELECT * FROM audit_log WHERE sequence_id = ? ORDER BY timestamp ASC")
     .all(sequenceId) as AuditLogRow[];
+}
+
+// --- Raw signals (pre-enrichment queue) ---
+
+export interface UpsertRawSignalInput {
+  externalId: string;
+  source: string;
+  rawPayload: unknown;
+  companyName?: string;
+  signalType?: string;
+  triggerDetail?: string;
+  triggerDate?: string;
+  score: number;
+  scoreReasons: string[];
+  status: RawSignalStatus;
+}
+
+/**
+ * Insert or refresh a raw signal. If it already exists and a reviewer has
+ * already made a manual call on it (qualified/dismissed/sent_to_clay), the
+ * status is left alone — only a still-'new' row gets its computed status
+ * overwritten by a re-ingest, so a human decision is never silently
+ * clobbered by the source re-sending the same row.
+ */
+export function upsertRawSignal(input: UpsertRawSignalInput): RawSignalRow {
+  const now = new Date().toISOString();
+  const payloadJson = JSON.stringify(input.rawPayload);
+  const reasonsJson = JSON.stringify(input.scoreReasons);
+
+  const existing = db
+    .prepare("SELECT * FROM raw_signals WHERE external_id = ?")
+    .get(input.externalId) as RawSignalRow | undefined;
+
+  if (existing) {
+    const keepStatus = existing.status !== "new";
+    db.prepare(
+      `UPDATE raw_signals
+       SET source = ?, raw_payload = ?, company_name = ?, signal_type = ?,
+           trigger_detail = ?, trigger_date = ?, score = ?, score_reasons = ?,
+           status = CASE WHEN ? THEN status ELSE ? END
+       WHERE id = ?`
+    ).run(
+      input.source,
+      payloadJson,
+      input.companyName ?? null,
+      input.signalType ?? null,
+      input.triggerDetail ?? null,
+      input.triggerDate ?? null,
+      input.score,
+      reasonsJson,
+      keepStatus ? 1 : 0,
+      input.status,
+      existing.id
+    );
+    return getRawSignalById(existing.id)!;
+  }
+
+  const info = db
+    .prepare(
+      `INSERT INTO raw_signals
+         (external_id, source, raw_payload, received_at, company_name, signal_type,
+          trigger_detail, trigger_date, score, score_reasons, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      input.externalId,
+      input.source,
+      payloadJson,
+      now,
+      input.companyName ?? null,
+      input.signalType ?? null,
+      input.triggerDetail ?? null,
+      input.triggerDate ?? null,
+      input.score,
+      reasonsJson,
+      input.status
+    );
+  return getRawSignalById(info.lastInsertRowid as number)!;
+}
+
+export function getRawSignalById(id: number): RawSignalRow | undefined {
+  return db.prepare("SELECT * FROM raw_signals WHERE id = ?").get(id) as
+    | RawSignalRow
+    | undefined;
+}
+
+export function listRawSignals(filter?: { status?: string; minScore?: number }): RawSignalRow[] {
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+  if (filter?.status) {
+    clauses.push("status = ?");
+    params.push(filter.status);
+  }
+  if (filter?.minScore !== undefined) {
+    clauses.push("score >= ?");
+    params.push(filter.minScore);
+  }
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  return db
+    .prepare(`SELECT * FROM raw_signals ${where} ORDER BY score DESC, received_at DESC`)
+    .all(...params) as RawSignalRow[];
+}
+
+export function setRawSignalStatus(
+  id: number,
+  status: RawSignalStatus,
+  reviewerNotes?: string
+): void {
+  const now = new Date().toISOString();
+  db.prepare(
+    `UPDATE raw_signals SET status = ?, reviewed_at = ?, reviewer_notes = COALESCE(?, reviewer_notes) WHERE id = ?`
+  ).run(status, now, reviewerNotes ?? null, id);
 }

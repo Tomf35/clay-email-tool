@@ -289,6 +289,20 @@ function callTool(
       tool_choice: { type: "tool", name: tool.name },
       messages: [{ role: "user", content: userPrompt }],
     })
+    .then((response) => {
+      // Diagnostic only — confirms whether prompt caching is actually
+      // being hit (cache_read_input_tokens > 0) or missed/written fresh
+      // (cache_creation_input_tokens > 0, cache_read = 0) on each call, so
+      // an unexpectedly high bill can be root-caused from Render's logs
+      // instead of guessed at from the dollar total alone.
+      const usage: any = response.usage;
+      console.log(
+        `[generation] token usage — input: ${usage?.input_tokens ?? "?"}, output: ${usage?.output_tokens ?? "?"}, ` +
+          `cache_creation_input_tokens: ${usage?.cache_creation_input_tokens ?? 0}, ` +
+          `cache_read_input_tokens: ${usage?.cache_read_input_tokens ?? 0}`
+      );
+      return response;
+    })
     .catch((err: any) => {
       throw new GenerationApiError(`Claude API call failed: ${err?.message || String(err)}`);
     });

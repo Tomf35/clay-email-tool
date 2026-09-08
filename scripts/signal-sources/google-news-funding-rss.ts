@@ -54,6 +54,7 @@
 
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 
 const INGEST_URL = process.env.INGEST_URL;
 const INGEST_SECRET = process.env.INGEST_SECRET;
@@ -69,15 +70,29 @@ const SEEN_FILE = path.join(__dirname, ".seen-news-articles.json");
 // guess. Ordered roughly by how commonly funding headlines use them.
 const FUNDING_VERBS = [
   "raises",
+  "raised",
   "secures",
+  "secured",
   "lands",
+  "landed",
   "nets",
+  "netted",
   "bags",
+  "bagged",
   "closes",
+  "closed",
   "scores",
   "pulls in",
   "banks",
 ];
+
+// NOT included on purpose: "leads" (as in "British Business Bank leads
+// £10m round for Certain Energy"). Naively splitting on it would extract
+// the LEAD INVESTOR as the company name, not the company actually being
+// funded — a wrong extraction is worse than a skipped one. Handling this
+// shape properly means parsing "... for <company>" instead, which is a
+// real improvement worth making if this pattern shows up often, not a
+// quick verb-list addition.
 
 interface SeenStore {
   guids: string[];
@@ -264,7 +279,13 @@ async function main() {
     }
 
     const signal = {
-      external_id: `news-${Buffer.from(item.guid).toString("base64").slice(0, 40)}`,
+      // Google News article guids/links all share the same long prefix
+      // ("https://news.google.com/rss/articles/") with the actual unique
+      // part further along the string — naively base64-encoding then
+      // truncating collapsed every article to the same id (confirmed:
+      // every ingest was overwriting the same row). A hash of the full
+      // string has full entropy from the whole input, not just its start.
+      external_id: `news-${crypto.createHash("sha256").update(item.guid).digest("hex").slice(0, 24)}`,
       source: "google_news_rss",
       company_name: companyName,
       contact_name: resolved?.contactName,

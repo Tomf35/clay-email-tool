@@ -271,7 +271,20 @@ function callTool(
     .create({
       model: MODEL,
       max_tokens: maxTokens,
-      system,
+      // The Claygent system prompt (~15,500 words) is byte-identical on
+      // every call — only the per-signal user turn changes. Marking it
+      // with cache_control lets Anthropic cache and reuse those input
+      // tokens across calls within the cache TTL instead of re-billing
+      // full price for the same ~20k tokens every single generation.
+      // Requires the system prompt as a content-block array rather than a
+      // plain string; a single cached block is enough.
+      system: [
+        {
+          type: "text",
+          text: system,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
       tools: [tool],
       tool_choice: { type: "tool", name: tool.name },
       messages: [{ role: "user", content: userPrompt }],

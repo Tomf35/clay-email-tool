@@ -8,3 +8,4 @@ data/
 .env
 *.log
 *.png
+.DS_Store

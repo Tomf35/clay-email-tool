@@ -75,5 +75,32 @@ your ICP.
 Parsing/extraction was verified against a realistic sample RSS feed
 (see the script's comments) rather than a live fetch — this sandbox's
 network policy blocks news.google.com outright, so the live fetch itself
-is untested from here. It should work unmodified from your machine or
-Render, but run it once manually first to confirm before scheduling it.
+was untested until you ran it manually (which is how we caught and fixed
+a real external_id collision bug — see git history).
+
+### Running it daily without your laptop needing to be on
+
+`.github/workflows/scan-google-news.yml` runs this script automatically
+once a day via GitHub Actions — free (well within the free-tier minutes
+at this volume), and it runs on GitHub's servers rather than yours, so it
+fires whether or not your machine is on. To turn it on:
+
+1. In your repo on GitHub: **Settings → Secrets and variables → Actions**.
+2. Add three repository secrets: `INGEST_URL` (your Render
+   `/api/raw-signals/ingest` URL), `INGEST_SECRET` (same value as on
+   Render), and `COMPANIES_HOUSE_API_KEY` (optional, but recommended —
+   without it the Companies House verification step is skipped and every
+   extracted name is posted unresolved).
+3. That's it — the workflow runs daily at 07:00 UTC. You can also trigger
+   it manually any time from the repo's **Actions** tab (**Actions → Scan
+   Google News for UK funding signals → Run workflow**) to test it
+   without waiting for the schedule.
+
+One caveat: GitHub Actions runners are thrown away after every run, so
+the workflow uses GitHub's cache to persist the script's "which articles
+have I already posted" file between days — otherwise every daily run
+would re-see the same recent articles. See the comments in the workflow
+file for how that's wired up. GitHub also auto-disables a repo's
+scheduled workflows after 60 days with no commits at all to the repo —
+unlikely to matter here given how often this repo is being pushed to,
+but worth knowing if it ever goes quiet for a long stretch.

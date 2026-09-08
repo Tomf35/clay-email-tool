@@ -1,0 +1,55 @@
+name: Scan Google News for UK funding signals
+
+on:
+  schedule:
+    # 07:00 UTC daily. GitHub Actions cron times can slip by several
+    # minutes at busy periods — fine for a daily news scan, not a concern.
+    # Note: GitHub disables a repo's scheduled workflows automatically
+    # after 60 days with no commits to the repo — a bit of normal repo
+    # activity keeps this alive; if it silently stops firing after a long
+    # quiet period, re-enable it from the Actions tab.
+    - cron: "0 7 * * *"
+  # Lets you trigger a run manually from the Actions tab, e.g. to test
+  # the workflow itself without waiting for the schedule.
+  workflow_dispatch: {}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - run: npm install
+
+      # Actions runners are ephemeral — without this, the script's local
+      # "which articles have I already posted" file would reset on every
+      # run, and it would re-process the same recent articles daily.
+      # Restore/save (rather than the older single `actions/cache` action)
+      # lets us always save a fresh cache entry after the run while still
+      # restoring the most recent previous one via the prefix match below
+      # — a plain `actions/cache` entry is immutable once saved under a
+      # key, so it can't be updated with each day's newly-seen articles.
+      - name: Restore seen-articles cache
+        uses: actions/cache/restore@v4
+        with:
+          path: scripts/signal-sources/.seen-news-articles.json
+          key: google-news-seen-${{ github.run_id }}
+          restore-keys: |
+            google-news-seen-
+
+      - run: npm run scan:google-news-funding
+        env:
+          INGEST_URL: ${{ secrets.INGEST_URL }}
+          INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
+          COMPANIES_HOUSE_API_KEY: ${{ secrets.COMPANIES_HOUSE_API_KEY }}
+
+      - name: Save seen-articles cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: scripts/signal-sources/.seen-news-articles.json
+          key: google-news-seen-${{ github.run_id }}

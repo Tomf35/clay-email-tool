@@ -44,11 +44,71 @@ const FIXED_PERSONAS = new Set(["HR", "Finance", "Ops", "CEO"]);
 // Clay row sending "finance", "FINANCE", or " Finance " still resolves to
 // the "Finance" key used in signal-substance.json, instead of silently
 // dropping all guidance.
+//
+// Also maps common real-world job titles (as they actually appear in Clay
+// rows, e.g. "Managing Director", "Financial Controller") onto the same 4
+// fixed buckets, since Clay's persona/title fields are free text rather
+// than pre-classified into HR/Finance/Ops/CEO. This is a best-effort
+// mapping of the most common UK SME title variants per bucket — anything
+// not listed here still falls through to the "unrecognized" warning below
+// rather than being guessed at, so a genuinely ambiguous or unusual title
+// never gets silently mis-bucketed.
 const PERSONA_BY_LOWERCASE: Record<string, string> = {
   hr: "HR",
   finance: "Finance",
   ops: "Ops",
   ceo: "CEO",
+
+  // CEO bucket — founder/owner/top-of-company titles.
+  "managing director": "CEO",
+  md: "CEO",
+  founder: "CEO",
+  "co-founder": "CEO",
+  "cofounder": "CEO",
+  owner: "CEO",
+  president: "CEO",
+  "managing partner": "CEO",
+  chairman: "CEO",
+  chairperson: "CEO",
+
+  // Finance bucket.
+  cfo: "Finance",
+  "financial controller": "Finance",
+  "finance director": "Finance",
+  "finance manager": "Finance",
+  "head of finance": "Finance",
+  "vp finance": "Finance",
+  "vp of finance": "Finance",
+  "financial manager": "Finance",
+  "financial director": "Finance",
+  controller: "Finance",
+  "chief financial officer": "Finance",
+
+  // HR bucket (includes "People" titles, standard in UK SMEs).
+  "hr director": "HR",
+  "hr manager": "HR",
+  "head of hr": "HR",
+  "head of people": "HR",
+  "people director": "HR",
+  "people manager": "HR",
+  chro: "HR",
+  "chief people officer": "HR",
+  "chief human resources officer": "HR",
+  "vp hr": "HR",
+  "vp people": "HR",
+  "human resources director": "HR",
+  "human resources manager": "HR",
+
+  // Ops bucket.
+  coo: "Ops",
+  "chief operating officer": "Ops",
+  "operations director": "Ops",
+  "operations manager": "Ops",
+  "head of operations": "Ops",
+  "head of ops": "Ops",
+  "vp operations": "Ops",
+  "vp ops": "Ops",
+  "general manager": "Ops",
 };
 
 /**

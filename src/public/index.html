@@ -10,6 +10,11 @@
 <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
+  <nav class="top-nav">
+    <button id="tabSequencesBtn" class="top-nav-btn active">Sequences</button>
+    <button id="tabRawSignalsBtn" class="top-nav-btn">Raw Signals</button>
+  </nav>
+
   <header class="topbar">
     <div class="brand">
       <img src="/assets/mintago-logo.webp" alt="Mintago" class="brand-logo" />
@@ -17,10 +22,6 @@
       <span class="brand-label">Outbound Review</span>
     </div>
     <div class="topbar-right">
-      <nav class="view-tabs">
-        <button id="tabSequencesBtn" class="view-tab active">Sequences</button>
-        <button id="tabRawSignalsBtn" class="view-tab">Raw signals</button>
-      </nav>
       <div class="filters" id="sequenceFilters">
         <label for="statusFilter">Status:</label>
         <select id="statusFilter">

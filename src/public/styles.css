@@ -77,20 +77,28 @@ body {
 }
 
 .topbar-right { display: flex; align-items: center; gap: 4px; }
-.view-tabs { display: flex; gap: 4px; margin-right: 16px; }
-.view-tab {
-  border-radius: 999px 999px 0 0;
-  border: 1px solid transparent;
-  background: none;
-  color: var(--mint-text-muted);
-  padding: 8px 16px;
+
+.top-nav {
+  display: flex;
+  gap: 10px;
+  background: var(--mint-navy);
+  padding: 14px 28px;
 }
-.view-tab:hover { background: var(--mint-cream); color: var(--mint-navy); }
-.view-tab.active {
-  background: var(--mint-cream);
-  color: var(--mint-navy);
-  border-color: var(--mint-border);
-  border-bottom-color: transparent;
+.top-nav-btn {
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: var(--mint-white);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.top-nav-btn:hover { background: rgba(255, 255, 255, 0.1); }
+.top-nav-btn.active {
+  background: var(--mint-coral);
+  border-color: var(--mint-coral);
+  color: #fff;
 }
 
 .filters { display: flex; gap: 8px; align-items: center; }

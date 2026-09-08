@@ -28,3 +28,21 @@ JSON file) if running from more than one machine, a way to grow the
 watchlist automatically, and a plan for filling in contact_email (e.g. a
 cheap one-off email-finder call, or routing these into LinkedIn/cold-call
 outreach only, which don't require one).
+
+## companies-house-stream-funding.ts
+
+The "no watchlist" version: instead of polling a fixed list of company
+numbers, this connects to Companies House's **streaming API** and watches
+every filing event across ALL UK companies in real time, catching
+funding-type filings from companies you never had to know about in
+advance.
+
+**The tradeoff:** this needs a permanently-open connection, so unlike the
+watchlist version it can't run as a scheduled cron job — it has to run as
+an always-on process. On Render that means a second paid service (a
+Background Worker, same ~$7/month Starter tier as the main web service),
+so this saves Clay credits but doesn't get hosting to zero.
+
+See the comments at the top of the script for the full breakdown,
+including what's rough about this mockup (timepoint persistence,
+reconnect handling, no backoff) before running it unattended for real.

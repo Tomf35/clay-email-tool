@@ -7,7 +7,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "scan:companies-house-funding": "ts-node scripts/signal-sources/companies-house-funding.ts"
+    "scan:companies-house-funding": "ts-node scripts/signal-sources/companies-house-funding.ts",
+    "scan:companies-house-stream": "ts-node scripts/signal-sources/companies-house-stream-funding.ts"
   },
   "license": "UNLICENSED",
   "dependencies": {

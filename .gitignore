@@ -10,3 +10,4 @@ data/
 *.png
 .DS_Store
 scripts/signal-sources/.seen-filings.json
+scripts/signal-sources/.stream-timepoint.json

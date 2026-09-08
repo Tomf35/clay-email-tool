@@ -1,0 +1,945 @@
+From 932d5c6ca47d17b82fc58c91d65c7c17bcc142bb Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 8 Sep 2026 16:05:42 +0000
+Subject: [PATCH] Add raw-signal queue: score cheap/free signals before
+ spending Clay credits
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Introduces a separate raw_signals table + /api/raw-signals/ingest endpoint
+that accepts pre-enrichment signal hits (from scripts/signal-sources/, or
+any other cheap source), applies a transparent rule-based score
+(signal type weight + recency + already-has-a-contact + verifiable
+source), and auto-marks anything clearing RAW_SIGNAL_QUALIFY_THRESHOLD
+(default 50) as "qualified" while leaving the rest for manual triage.
+
+Adds a "Raw signals" tab to the review UI (basicAuth-protected, same as
+the existing Sequences queue) to see the queue, filter by status, and
+qualify/dismiss with a reviewer note.
+
+The idea: Clay currently does both "find the trigger" and "find/enrich
+the contact" and charges credits for both on every row. This slice lets
+cheap/free sources (Companies House scan, job-board scan, etc.) handle
+trigger-finding, so Clay only spends credits enriching contacts for
+signals a human or the score has already decided are worth it.
+
+Does NOT yet include the Clay hand-off endpoint (Clay polling this app
+for qualified signals) — full design and the reasoning for deferring it
+(retry/ack semantics need a real decision) is in
+docs/raw-signal-pipeline.md.
+
+Also updates the Companies House scraper script to post into the new
+raw-signal queue instead of straight to /api/ingest, since it has no
+verified contact email yet.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015crp6GWRrqAmVAzBq9yxfy
+---
+ docs/raw-signal-pipeline.md                   | 115 ++++++++++++++++
+ scripts/signal-sources/README.md              |  10 +-
+ .../signal-sources/companies-house-funding.ts |  12 +-
+ src/db/index.ts                               |  19 +++
+ src/db/repository.ts                          | 114 ++++++++++++++++
+ src/lib/rawSignalScoring.ts                   |  86 ++++++++++++
+ src/public/app.js                             | 116 ++++++++++++++++
+ src/public/index.html                         |  57 ++++++--
+ src/public/styles.css                         |  37 +++++
+ src/routes/rawSignals.ts                      | 126 ++++++++++++++++++
+ src/server.ts                                 |   3 +
+ src/types.ts                                  |  27 ++++
+ 12 files changed, 704 insertions(+), 18 deletions(-)
+ create mode 100644 docs/raw-signal-pipeline.md
+ create mode 100644 src/lib/rawSignalScoring.ts
+ create mode 100644 src/routes/rawSignals.ts
+
+diff --git a/docs/raw-signal-pipeline.md b/docs/raw-signal-pipeline.md
+new file mode 100644
+index 0000000..a230305
+--- /dev/null
++++ b/docs/raw-signal-pipeline.md
+@@ -0,0 +1,115 @@
++# Raw signal pipeline
++
++## Why this exists
++
++Today, Clay does two jobs: finding a raw trigger (a funding round, a hiring
++spike, etc.) AND enriching/finding the contact for it — and it charges data
++credits for both, on every row, whether or not that row ever turns into a
++sequence a human approves. This pipeline splits those two jobs so Clay only
++gets paid for the second one, and only on rows a human (or a score) has
++already decided are worth enriching.
++
++```
++free/cheap source          this app                       Clay                 this app (existing)
++------------------    ->  ----------------------     ->  -----------------  -> --------------------------
++Companies House scan       raw_signals table               find contact        /api/ingest (unchanged)
++job-board scan             (score, status: new/           enrich company       normalize -> generate ->
++news/RSS scan               qualified/dismissed/            email/etc.          review queue (unchanged)
++Clay (still fine for        sent_to_clay)
++ signal types with no
++ cheap alternative)
++```
++
++## What's built (this slice)
++
++- `raw_signals` table — id, external_id (dedupe key), source, raw_payload,
++  company_name/signal_type/trigger_detail/trigger_date (denormalized for
++  display), score, score_reasons (JSON array of the rules that fired),
++  status (`new` | `qualified` | `dismissed` | `sent_to_clay`), reviewed_at,
++  reviewer_notes.
++- `POST /api/raw-signals/ingest` — shared-secret gated (same
++  `INGEST_SECRET` as `/api/ingest`), same shape of caller as the Companies
++  House script: anyone with the secret can post a raw signal payload. Scores
++  it on arrival via `src/lib/rawSignalScoring.ts` and auto-sets status to
++  `qualified` if the score clears `RAW_SIGNAL_QUALIFY_THRESHOLD` (default
++  50), otherwise leaves it `new` for manual triage. Re-posting the same
++  `external_id` refreshes score/payload but never overwrites a status a
++  human has already set (qualified/dismissed/sent_to_clay).
++- `GET /api/raw-signals` (+ `/:id`, `/:id/qualify`, `/:id/dismiss`) —
++  behind the same basicAuth as the sequence review routes. Lets a reviewer
++  see the queue, filter by status, and override the score's call in either
++  direction.
++- A "Raw signals" tab in the review UI, next to the existing "Sequences"
++  tab — same page, same auth, its own table with a score pill (colored by
++  band), qualify/dismiss buttons, and a status filter.
++
++## Scoring (rule-based, `src/lib/rawSignalScoring.ts`)
++
++Every point is a named rule, and the reasons list is stored and shown (as
++the score pill's tooltip in the UI) so a reviewer never has to guess why
++something scored the way it did:
++
++| Rule | Points |
++| --- | --- |
++| `signal_type` weight — funding_events +40, cost_restructuring +35, hr_recent_change +30, admin_vendor_consolidation +25, anything else +10 | up to 40 |
++| Trigger recency — within 7d +20, within 14d +10, within 30d +5, older +0 | up to 20 |
++| Already has a named contact (cheaper to enrich) | +10 |
++| Trigger has a verifiable source URL | +5 |
++
++`QUALIFY_THRESHOLD` defaults to 50 and is overridable via the
++`RAW_SIGNAL_QUALIFY_THRESHOLD` env var — tune it once real volume/quality
++data comes in, no code change needed. This is intentionally simple; nothing
++here stops it from being replaced or supplemented with a Claude-scored
++pass later if the rules prove too blunt (e.g. borderline scores routed to
++a cheap classification call) — that was explicitly deferred, not designed
++away.
++
++## Next step: handing qualified signals to Clay (not yet built)
++
++The chosen mechanism is **Clay polls this app** (rather than this app
++calling into a Clay webhook), so Clay's own scheduling/retry handling does
++the work and this app stays simple. The shape, when you're ready to build
++it:
++
++```
++GET /api/raw-signals/qualified-for-clay
++Header: X-Webhook-Secret: <INGEST_SECRET>
++```
++
++- Returns `status = 'qualified'` rows, oldest first, capped at some page
++  size (e.g. 50) so Clay can page through a backlog safely.
++- On return, this endpoint immediately flips each returned row to
++  `sent_to_clay` (optimistic — a network failure between the response
++  leaving this server and Clay receiving it would mark a row sent that
++  Clay never actually got; acceptable for a v1, but worth knowing). A more
++  robust version would have Clay explicitly ack rows it successfully
++  loaded via a second small `POST /api/raw-signals/:id/ack-sent`, and only
++  flip status on that ack — that's the natural v2 if drops turn out to
++  matter in practice.
++- Response shape mirrors what `/api/ingest` already expects downstream,
++  so Clay's enrichment table just needs to map its own output (found
++  contact_name/email/linkedin_url/etc.) back onto the existing `/api/ingest`
++  payload shape — no new schema for Clay to learn, it's the same fields
++  this app already accepts today.
++- Clay side: a scheduled table run (e.g. every 30–60 min) calling this
++  endpoint, running your existing find-contact/enrich workflow only on
++  what comes back, then POSTing each enriched result to `/api/ingest` same
++  as today.
++
++This is a small addition (one route, reusing the existing repository
++functions) — flagged as a follow-up rather than built now so the
++polling/ack behavior above gets a real decision first, since retry/ack
++semantics are the one part of this whole pipeline with actual product
++risk (a dropped row silently never reaching Clay).
++
++## Feeding the raw_signals queue
++
++Right now the only source wired up is
++`scripts/signal-sources/companies-house-funding.ts`, which POSTs into
++`/api/raw-signals/ingest` (update it — or add new scripts — to point at
++that endpoint instead of `/api/ingest`, since it now belongs in the
++raw-signal queue, not the enriched-signal one). Any other free/cheap
++source (a job-board scanner, an RSS/news scanner) plugs in the same way:
++whatever shape of payload, as long as it includes `external_id` and ideally
++`signal_type`/`trigger_date`/`company_name` for scoring to have something
++to work with.
+diff --git a/scripts/signal-sources/README.md b/scripts/signal-sources/README.md
+index 8c14166..cd96d59 100644
+--- a/scripts/signal-sources/README.md
++++ b/scripts/signal-sources/README.md
+@@ -1,10 +1,12 @@
+ # Alternative signal sources
+ 
+ Rough, standalone scripts that source signals more cheaply than a Clay
+-enrichment waterfall and POST them straight into this app's existing
+-`/ingest` webhook, so they flow through the same normalize -> generate ->
+-review pipeline as a Clay-sourced row. Each is independent — run whichever
+-ones are useful, ignore the rest.
++enrichment waterfall and POST them into this app's `/api/raw-signals/ingest`
++queue (see `docs/raw-signal-pipeline.md`), where each gets a rule-based
++score and waits for a human — or the score — to decide whether it's worth
++handing to Clay for contact-find/enrich, rather than skipping straight to
++email generation. Each script is independent — run whichever ones are
++useful, ignore the rest.
+ 
+ ## companies-house-funding.ts
+ 
+diff --git a/scripts/signal-sources/companies-house-funding.ts b/scripts/signal-sources/companies-house-funding.ts
+index 74c23a4..d67a7eb 100644
+--- a/scripts/signal-sources/companies-house-funding.ts
++++ b/scripts/signal-sources/companies-house-funding.ts
+@@ -17,9 +17,12 @@
+  *    (free, from the same API) to use as the outbound contact — covering
+  *    the CEO/Founder/MD persona your prompt already expects for funding
+  *    signals.
+- * 4. Builds a SignalRecord-shaped payload and POSTs it to your existing
+- *    /ingest webhook, so it flows through the exact same pipeline
+- *    (normalize -> generate -> review queue) as a Clay-sourced row.
++ * 4. Builds a signal-shaped payload and POSTs it to the raw-signal queue
++ *    (/api/raw-signals/ingest — see docs/raw-signal-pipeline.md), where it
++ *    gets a rule-based score and waits for a human (or the score) to
++ *    decide whether it's worth handing to Clay for contact-enrichment,
++ *    rather than skipping straight to email generation. It does NOT post
++ *    to /api/ingest directly, since these hits have no verified email yet.
+  *
+  * WHAT IT DOESN'T DO (yet)
+  * - No company_domain / contact_email — Companies House doesn't have
+@@ -36,7 +39,7 @@
+  *
+  * SETUP
+  *   export COMPANIES_HOUSE_API_KEY=xxxx        (free, from CH developer hub)
+- *   export INGEST_URL=https://clay-email-tool.onrender.com/ingest
++ *   export INGEST_URL=https://clay-email-tool.onrender.com/api/raw-signals/ingest
+  *   export INGEST_SECRET=xxxx                  (same value as on Render)
+  *   export WATCHLIST_COMPANY_NUMBERS=01234567,07654321   (comma-separated)
+  *
+@@ -191,6 +194,7 @@ async function main() {
+       for (const filing of newFundingFilings) {
+         const signal = {
+           external_id: `ch-${companyNumber}-${filing.transaction_id}`,
++          source: "companies_house",
+           company_name: profile.company_name,
+           headcount: undefined, // Companies House doesn't report headcount
+           contact_name: officer.name,
+diff --git a/src/db/index.ts b/src/db/index.ts
+index a11e956..6643c4c 100644
+--- a/src/db/index.ts
++++ b/src/db/index.ts
+@@ -105,6 +105,23 @@ db.exec(`
+     detail_text TEXT
+   );
+ 
++  CREATE TABLE IF NOT EXISTS raw_signals (
++    id INTEGER PRIMARY KEY AUTOINCREMENT,
++    external_id TEXT NOT NULL UNIQUE,
++    source TEXT NOT NULL,
++    raw_payload TEXT NOT NULL,
++    received_at TEXT NOT NULL,
++    company_name TEXT,
++    signal_type TEXT,
++    trigger_detail TEXT,
++    trigger_date TEXT,
++    score INTEGER NOT NULL DEFAULT 0,
++    score_reasons TEXT NOT NULL DEFAULT '[]',
++    status TEXT NOT NULL DEFAULT 'new',
++    reviewed_at TEXT,
++    reviewer_notes TEXT
++  );
++
+   CREATE INDEX IF NOT EXISTS idx_sequences_signal_id ON sequences(signal_id);
+   CREATE INDEX IF NOT EXISTS idx_sequences_status ON sequences(status);
+   CREATE INDEX IF NOT EXISTS idx_sequence_emails_sequence_id ON sequence_emails(sequence_id);
+@@ -112,6 +129,8 @@ db.exec(`
+   CREATE INDEX IF NOT EXISTS idx_linkedin_messages_sequence_id ON linkedin_messages(sequence_id);
+   CREATE INDEX IF NOT EXISTS idx_linkedin_messages_status ON linkedin_messages(status);
+   CREATE INDEX IF NOT EXISTS idx_audit_log_sequence_id ON audit_log(sequence_id);
++  CREATE INDEX IF NOT EXISTS idx_raw_signals_status ON raw_signals(status);
++  CREATE INDEX IF NOT EXISTS idx_raw_signals_score ON raw_signals(score);
+ `);
+ 
+ export default db;
+diff --git a/src/db/repository.ts b/src/db/repository.ts
+index 4c55127..77b1481 100644
+--- a/src/db/repository.ts
++++ b/src/db/repository.ts
+@@ -4,6 +4,8 @@ import {
+   GeneratedColdCallOpener,
+   GeneratedCompanyResearch,
+   LinkedinMessageRow,
++  RawSignalRow,
++  RawSignalStatus,
+   SequenceEmailRow,
+   SequenceEmailStatus,
+   SequenceRow,
+@@ -484,3 +486,115 @@ export function getAuditLogForSequence(sequenceId: number): AuditLogRow[] {
+     .prepare("SELECT * FROM audit_log WHERE sequence_id = ? ORDER BY timestamp ASC")
+     .all(sequenceId) as AuditLogRow[];
+ }
++
++// --- Raw signals (pre-enrichment queue) ---
++
++export interface UpsertRawSignalInput {
++  externalId: string;
++  source: string;
++  rawPayload: unknown;
++  companyName?: string;
++  signalType?: string;
++  triggerDetail?: string;
++  triggerDate?: string;
++  score: number;
++  scoreReasons: string[];
++  status: RawSignalStatus;
++}
++
++/**
++ * Insert or refresh a raw signal. If it already exists and a reviewer has
++ * already made a manual call on it (qualified/dismissed/sent_to_clay), the
++ * status is left alone — only a still-'new' row gets its computed status
++ * overwritten by a re-ingest, so a human decision is never silently
++ * clobbered by the source re-sending the same row.
++ */
++export function upsertRawSignal(input: UpsertRawSignalInput): RawSignalRow {
++  const now = new Date().toISOString();
++  const payloadJson = JSON.stringify(input.rawPayload);
++  const reasonsJson = JSON.stringify(input.scoreReasons);
++
++  const existing = db
++    .prepare("SELECT * FROM raw_signals WHERE external_id = ?")
++    .get(input.externalId) as RawSignalRow | undefined;
++
++  if (existing) {
++    const keepStatus = existing.status !== "new";
++    db.prepare(
++      `UPDATE raw_signals
++       SET source = ?, raw_payload = ?, company_name = ?, signal_type = ?,
++           trigger_detail = ?, trigger_date = ?, score = ?, score_reasons = ?,
++           status = CASE WHEN ? THEN status ELSE ? END
++       WHERE id = ?`
++    ).run(
++      input.source,
++      payloadJson,
++      input.companyName ?? null,
++      input.signalType ?? null,
++      input.triggerDetail ?? null,
++      input.triggerDate ?? null,
++      input.score,
++      reasonsJson,
++      keepStatus ? 1 : 0,
++      input.status,
++      existing.id
++    );
++    return getRawSignalById(existing.id)!;
++  }
++
++  const info = db
++    .prepare(
++      `INSERT INTO raw_signals
++         (external_id, source, raw_payload, received_at, company_name, signal_type,
++          trigger_detail, trigger_date, score, score_reasons, status)
++       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
++    )
++    .run(
++      input.externalId,
++      input.source,
++      payloadJson,
++      now,
++      input.companyName ?? null,
++      input.signalType ?? null,
++      input.triggerDetail ?? null,
++      input.triggerDate ?? null,
++      input.score,
++      reasonsJson,
++      input.status
++    );
++  return getRawSignalById(info.lastInsertRowid as number)!;
++}
++
++export function getRawSignalById(id: number): RawSignalRow | undefined {
++  return db.prepare("SELECT * FROM raw_signals WHERE id = ?").get(id) as
++    | RawSignalRow
++    | undefined;
++}
++
++export function listRawSignals(filter?: { status?: string; minScore?: number }): RawSignalRow[] {
++  const clauses: string[] = [];
++  const params: unknown[] = [];
++  if (filter?.status) {
++    clauses.push("status = ?");
++    params.push(filter.status);
++  }
++  if (filter?.minScore !== undefined) {
++    clauses.push("score >= ?");
++    params.push(filter.minScore);
++  }
++  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
++  return db
++    .prepare(`SELECT * FROM raw_signals ${where} ORDER BY score DESC, received_at DESC`)
++    .all(...params) as RawSignalRow[];
++}
++
++export function setRawSignalStatus(
++  id: number,
++  status: RawSignalStatus,
++  reviewerNotes?: string
++): void {
++  const now = new Date().toISOString();
++  db.prepare(
++    `UPDATE raw_signals SET status = ?, reviewed_at = ?, reviewer_notes = COALESCE(?, reviewer_notes) WHERE id = ?`
++  ).run(status, now, reviewerNotes ?? null, id);
++}
+diff --git a/src/lib/rawSignalScoring.ts b/src/lib/rawSignalScoring.ts
+new file mode 100644
+index 0000000..9c404bd
+--- /dev/null
++++ b/src/lib/rawSignalScoring.ts
+@@ -0,0 +1,86 @@
++/**
++ * Rule-based scoring for raw (pre-enrichment) signals.
++ *
++ * Deliberately simple and fully transparent: every point is a named rule
++ * below, and the score comes back with the list of reasons that produced
++ * it so a reviewer never has to guess why something scored the way it did.
++ * Tune QUALIFY_THRESHOLD or the weights below as real data comes in — no
++ * other code needs to change.
++ */
++
++export interface RawSignalScoreInput {
++  signal_type?: string;
++  trigger_date?: string; // ISO date string
++  contact_name?: string; // already have a named contact (cheaper to enrich)
++  trigger_source_url?: string; // verifiable source
++  headcount?: string | number;
++}
++
++export interface RawSignalScoreResult {
++  score: number;
++  reasons: string[];
++}
++
++// Points per signal type, reflecting how directly each maps to a Mintago
++// buying trigger per the signal-substance playbook. Unknown types get a
++// low default rather than being excluded, so nothing is silently dropped.
++const SIGNAL_TYPE_WEIGHTS: Record<string, number> = {
++  funding_events: 40,
++  cost_restructuring: 35,
++  hr_recent_change: 30,
++  admin_vendor_consolidation: 25,
++};
++const DEFAULT_SIGNAL_TYPE_WEIGHT = 10;
++
++export const QUALIFY_THRESHOLD = Number(process.env.RAW_SIGNAL_QUALIFY_THRESHOLD || 50);
++
++function daysAgo(dateStr: string | undefined): number | null {
++  if (!dateStr) return null;
++  const d = new Date(dateStr);
++  if (isNaN(d.getTime())) return null;
++  return Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
++}
++
++export function scoreRawSignal(input: RawSignalScoreInput): RawSignalScoreResult {
++  const reasons: string[] = [];
++  let score = 0;
++
++  const typeKey = (input.signal_type || "").trim();
++  const typeWeight = SIGNAL_TYPE_WEIGHTS[typeKey] ?? DEFAULT_SIGNAL_TYPE_WEIGHT;
++  score += typeWeight;
++  reasons.push(
++    typeKey
++      ? `signal_type "${typeKey}" (+${typeWeight})`
++      : `no signal_type given, default weight (+${typeWeight})`
++  );
++
++  const age = daysAgo(input.trigger_date);
++  if (age !== null) {
++    if (age <= 7) {
++      score += 20;
++      reasons.push(`trigger is ${age}d old, within 7d (+20)`);
++    } else if (age <= 14) {
++      score += 10;
++      reasons.push(`trigger is ${age}d old, within 14d (+10)`);
++    } else if (age <= 30) {
++      score += 5;
++      reasons.push(`trigger is ${age}d old, within 30d (+5)`);
++    } else {
++      reasons.push(`trigger is ${age}d old, older than 30d (+0)`);
++    }
++  } else {
++    reasons.push("no trigger_date given (+0)");
++  }
++
++  if (input.contact_name) {
++    score += 10;
++    reasons.push("already have a named contact, cheaper to enrich (+10)");
++  }
++
++  if (input.trigger_source_url) {
++    score += 5;
++    reasons.push("trigger has a verifiable source URL (+5)");
++  }
++
++  return { score, reasons };
++}
+diff --git a/src/public/app.js b/src/public/app.js
+index e8d6241..3e7b9f3 100644
+--- a/src/public/app.js
++++ b/src/public/app.js
+@@ -406,4 +406,120 @@ backBtn.addEventListener("click", () => {
+ statusFilter.addEventListener("change", loadQueue);
+ refreshBtn.addEventListener("click", loadQueue);
+ 
++// --- Raw signals tab ---
++//
++// A second, independent queue: pre-enrichment signal hits (e.g. from the
++// Companies House scraper) with a rule-based score, awaiting a human call
++// on whether to send them to Clay for contact-find/enrich. See
++// docs/raw-signal-pipeline.md for the full design.
++
++const rawSignalsView = document.getElementById("rawSignalsView");
++const rawSignalsBody = document.getElementById("rawSignalsBody");
++const rawSignalsEmptyState = document.getElementById("rawSignalsEmptyState");
++const rawSignalStatusFilter = document.getElementById("rawSignalStatusFilter");
++const rawSignalRefreshBtn = document.getElementById("rawSignalRefreshBtn");
++const tabSequencesBtn = document.getElementById("tabSequencesBtn");
++const tabRawSignalsBtn = document.getElementById("tabRawSignalsBtn");
++const sequenceFilters = document.getElementById("sequenceFilters");
++const rawSignalFilters = document.getElementById("rawSignalFilters");
++
++function showRawSignalError(message) {
++  const el = document.getElementById("rawSignalError");
++  if (!el) return;
++  if (!message) {
++    el.textContent = "";
++    el.classList.add("hidden");
++    return;
++  }
++  el.textContent = message;
++  el.classList.remove("hidden");
++}
++
++function scorePillClass(score) {
++  if (score >= 50) return "score-pill-high";
++  if (score >= 25) return "score-pill-mid";
++  return "score-pill-low";
++}
++
++async function loadRawSignals() {
++  try {
++    const status = rawSignalStatusFilter.value;
++    const url = "/api/raw-signals" + (status ? `?status=${encodeURIComponent(status)}` : "");
++    const res = await fetch(url);
++    if (!res.ok) {
++      let errMsg = `Failed to load raw signals (HTTP ${res.status})`;
++      try {
++        const errData = await res.json();
++        if (errData && errData.error) errMsg = errData.error;
++      } catch {
++        // ignore parse failure
++      }
++      showRawSignalError(errMsg);
++      return;
++    }
++    const data = await res.json();
++    showRawSignalError(null);
++    renderRawSignals(data.raw_signals || []);
++  } catch (err) {
++    showRawSignalError("Failed to load raw signals: " + (err && err.message ? err.message : "network error"));
++  }
++}
++
++function renderRawSignals(rows) {
++  rawSignalsBody.innerHTML = "";
++  if (rows.length === 0) {
++    rawSignalsEmptyState.classList.remove("hidden");
++    return;
++  }
++  rawSignalsEmptyState.classList.add("hidden");
++
++  for (const r of rows) {
++    const tr = document.createElement("tr");
++    const isDecided = r.status !== "new" && r.status !== "qualified";
++    tr.innerHTML = `
++      <td><span class="score-pill ${scorePillClass(r.score)}" title="${escapeHtml((r.score_reasons || []).join("; "))}">${r.score}</span></td>
++      <td>${escapeHtml(r.company_name || "—")}</td>
++      <td>${escapeHtml(r.signal_type || "—")}</td>
++      <td>${escapeHtml(r.trigger_detail || "—")}</td>
++      <td>${escapeHtml(r.trigger_date || "—")}</td>
++      <td>${escapeHtml(r.source || "—")}</td>
++      <td><span class="badge badge-${r.status}">${r.status}</span></td>
++      <td class="row-actions">
++        <button class="qualify-btn" ${isDecided ? "disabled" : ""}>Qualify</button>
++        <button class="dismiss-btn btn-reject" ${isDecided ? "disabled" : ""}>Dismiss</button>
++      </td>
++    `;
++    tr.querySelector(".qualify-btn").addEventListener("click", async (e) => {
++      e.stopPropagation();
++      await postJson(`/api/raw-signals/${r.id}/qualify`, {});
++      loadRawSignals();
++    });
++    tr.querySelector(".dismiss-btn").addEventListener("click", async (e) => {
++      e.stopPropagation();
++      const reason = window.prompt("Reason for dismissing (optional):") || undefined;
++      await postJson(`/api/raw-signals/${r.id}/dismiss`, { notes: reason });
++      loadRawSignals();
++    });
++    rawSignalsBody.appendChild(tr);
++  }
++}
++
++function switchTab(tab) {
++  const showRaw = tab === "raw";
++  tabSequencesBtn.classList.toggle("active", !showRaw);
++  tabRawSignalsBtn.classList.toggle("active", showRaw);
++  sequenceFilters.classList.toggle("hidden", showRaw);
++  rawSignalFilters.classList.toggle("hidden", !showRaw);
++  detailView.classList.add("hidden");
++  queueView.classList.toggle("hidden", showRaw);
++  rawSignalsView.classList.toggle("hidden", !showRaw);
++  if (showRaw) loadRawSignals();
++  else loadQueue();
++}
++
++tabSequencesBtn.addEventListener("click", () => switchTab("sequences"));
++tabRawSignalsBtn.addEventListener("click", () => switchTab("raw"));
++rawSignalStatusFilter.addEventListener("change", loadRawSignals);
++rawSignalRefreshBtn.addEventListener("click", loadRawSignals);
++
+ loadQueue();
+diff --git a/src/public/index.html b/src/public/index.html
+index b5a318f..c14e432 100644
+--- a/src/public/index.html
++++ b/src/public/index.html
+@@ -16,16 +16,33 @@
+       <span class="brand-divider"></span>
+       <span class="brand-label">Outbound Review</span>
+     </div>
+-    <div class="filters">
+-      <label for="statusFilter">Status:</label>
+-      <select id="statusFilter">
+-        <option value="">All</option>
+-        <option value="pending_review" selected>Pending review</option>
+-        <option value="sent_to_destination">Sent to destination</option>
+-        <option value="rejected">Rejected</option>
+-        <option value="superseded">Superseded</option>
+-      </select>
+-      <button id="refreshBtn">Refresh</button>
++    <div class="topbar-right">
++      <nav class="view-tabs">
++        <button id="tabSequencesBtn" class="view-tab active">Sequences</button>
++        <button id="tabRawSignalsBtn" class="view-tab">Raw signals</button>
++      </nav>
++      <div class="filters" id="sequenceFilters">
++        <label for="statusFilter">Status:</label>
++        <select id="statusFilter">
++          <option value="">All</option>
++          <option value="pending_review" selected>Pending review</option>
++          <option value="sent_to_destination">Sent to destination</option>
++          <option value="rejected">Rejected</option>
++          <option value="superseded">Superseded</option>
++        </select>
++        <button id="refreshBtn">Refresh</button>
++      </div>
++      <div class="filters hidden" id="rawSignalFilters">
++        <label for="rawSignalStatusFilter">Status:</label>
++        <select id="rawSignalStatusFilter">
++          <option value="">All</option>
++          <option value="new" selected>New</option>
++          <option value="qualified">Qualified</option>
++          <option value="sent_to_clay">Sent to Clay</option>
++          <option value="dismissed">Dismissed</option>
++        </select>
++        <button id="rawSignalRefreshBtn">Refresh</button>
++      </div>
+     </div>
+   </header>
+ 
+@@ -48,6 +65,26 @@
+       <p id="emptyState" class="empty hidden">No sequences found for this filter.</p>
+     </section>
+ 
++    <section id="rawSignalsView" class="hidden">
++      <p id="rawSignalError" class="error-message hidden"></p>
++      <table id="rawSignalsTable">
++        <thead>
++          <tr>
++            <th>Score</th>
++            <th>Company</th>
++            <th>Signal type</th>
++            <th>Trigger detail</th>
++            <th>Trigger date</th>
++            <th>Source</th>
++            <th>Status</th>
++            <th>Actions</th>
++          </tr>
++        </thead>
++        <tbody id="rawSignalsBody"></tbody>
++      </table>
++      <p id="rawSignalsEmptyState" class="empty hidden">No raw signals found for this filter.</p>
++    </section>
++
+     <section id="detailView" class="hidden">
+       <button id="backBtn">&larr; Back to queue</button>
+       <div class="detail-grid">
+diff --git a/src/public/styles.css b/src/public/styles.css
+index be8667e..2fb1316 100644
+--- a/src/public/styles.css
++++ b/src/public/styles.css
+@@ -76,6 +76,23 @@ body {
+   letter-spacing: 0.01em;
+ }
+ 
++.topbar-right { display: flex; align-items: center; gap: 4px; }
++.view-tabs { display: flex; gap: 4px; margin-right: 16px; }
++.view-tab {
++  border-radius: 999px 999px 0 0;
++  border: 1px solid transparent;
++  background: none;
++  color: var(--mint-text-muted);
++  padding: 8px 16px;
++}
++.view-tab:hover { background: var(--mint-cream); color: var(--mint-navy); }
++.view-tab.active {
++  background: var(--mint-cream);
++  color: var(--mint-navy);
++  border-color: var(--mint-border);
++  border-bottom-color: transparent;
++}
++
+ .filters { display: flex; gap: 8px; align-items: center; }
+ .filters label { display: inline; font-size: 13px; font-weight: 600; margin: 0; color: var(--mint-text-muted); }
+ 
+@@ -122,6 +139,26 @@ tbody tr:hover { background: var(--mint-coral-soft); }
+ .badge-error { background: var(--mint-red-bg); color: var(--mint-red-text); }
+ .badge-wordcount-flag { background: var(--mint-coral-soft); color: var(--mint-coral-dark); }
+ .badge-tier { background: var(--mint-purple-bg); color: var(--mint-purple-text); }
++.badge-new { background: var(--mint-gray-bg); color: var(--mint-gray-text); }
++.badge-qualified { background: var(--mint-sage-bg); color: var(--mint-sage-text); }
++.badge-sent_to_clay { background: var(--mint-sky); color: var(--mint-navy); }
++.badge-dismissed { background: var(--mint-red-bg); color: var(--mint-red-text); }
++
++.score-pill {
++  display: inline-block;
++  min-width: 28px;
++  text-align: center;
++  padding: 3px 8px;
++  border-radius: 999px;
++  font-weight: 700;
++  font-size: 12px;
++}
++.score-pill-high { background: var(--mint-sage-bg); color: var(--mint-sage-text); }
++.score-pill-mid { background: var(--mint-amber-bg); color: var(--mint-amber-text); }
++.score-pill-low { background: var(--mint-gray-bg); color: var(--mint-gray-text); }
++
++.row-actions { display: flex; gap: 6px; }
++.row-actions button { padding: 5px 10px; font-size: 12px; }
+ 
+ .steps-indicator { font-family: "SFMono-Regular", Consolas, monospace; letter-spacing: 1px; color: var(--mint-navy-soft); }
+ 
+diff --git a/src/routes/rawSignals.ts b/src/routes/rawSignals.ts
+new file mode 100644
+index 0000000..3a984fc
+--- /dev/null
++++ b/src/routes/rawSignals.ts
+@@ -0,0 +1,126 @@
++import { Router, Request, Response } from "express";
++import * as repo from "../db/repository";
++import { asyncHandler } from "../lib/asyncHandler";
++import { QUALIFY_THRESHOLD, scoreRawSignal } from "../lib/rawSignalScoring";
++import { RawSignalStatus } from "../types";
++
++// Split into two routers (mirroring ingestRouter vs sequencesRouter in
++// server.ts) so the ingest endpoint can be mounted WITHOUT basicAuth (it's
++// called by scripts with their own shared-secret, not a browser) while the
++// review-facing routes stay behind basicAuth like /api/sequences.
++
++export const rawSignalIngestRouter = Router();
++export const rawSignalsReviewRouter = Router();
++
++// --- Ingest (shared-secret gated) ---
++//
++// Accepts a raw, pre-enrichment signal hit (e.g. from
++// scripts/signal-sources/companies-house-funding.ts), scores it with the
++// rule-based scorer, and stores it in the raw_signals queue. This is
++// intentionally a SEPARATE endpoint/table from /api/ingest + signals: those
++// are for signals that already have a resolved contact and are ready for
++// email/LinkedIn/cold-call generation. This one is for cheaper/free signal
++// hits that haven't been enriched yet and may not even resolve to a real
++// contact — see docs/raw-signal-pipeline.md for the full pipeline design.
++rawSignalIngestRouter.post(
++  "/raw-signals/ingest",
++  asyncHandler(async (req: Request, res: Response) => {
++    const secret = req.header("X-Webhook-Secret");
++    const expected = process.env.INGEST_SECRET;
++
++    if (!expected) {
++      return res.status(500).json({
++        error: "Server misconfigured: INGEST_SECRET is not set.",
++      });
++    }
++    if (!secret || secret !== expected) {
++      return res.status(401).json({ error: "Invalid or missing X-Webhook-Secret header." });
++    }
++
++    const body = req.body;
++    if (!body || typeof body !== "object" || Array.isArray(body)) {
++      return res.status(400).json({ error: "Request body must be a JSON object." });
++    }
++
++    const externalId = body.external_id as string;
++    if (!externalId || typeof externalId !== "string") {
++      return res.status(400).json({ error: "Missing required field: external_id" });
++    }
++
++    const { score, reasons } = scoreRawSignal({
++      signal_type: body.signal_type,
++      trigger_date: body.trigger_date,
++      contact_name: body.contact_name,
++      trigger_source_url: body.trigger_source_url,
++      headcount: body.headcount,
++    });
++    const status: RawSignalStatus = score >= QUALIFY_THRESHOLD ? "qualified" : "new";
++
++    const row = repo.upsertRawSignal({
++      externalId,
++      source: (body.source as string) || "unknown",
++      rawPayload: body,
++      companyName: body.company_name,
++      signalType: body.signal_type,
++      triggerDetail: body.trigger_detail,
++      triggerDate: body.trigger_date,
++      score,
++      scoreReasons: reasons,
++      status,
++    });
++
++    return res.status(200).json({
++      raw_signal: { id: row.id, external_id: row.external_id, score: row.score, status: row.status },
++    });
++  })
++);
++
++// --- Review-UI-facing routes (mounted behind basicAuth in server.ts, same
++// as /api/sequences) ---
++
++function serializeRawSignal(row: NonNullable<ReturnType<typeof repo.getRawSignalById>>) {
++  return {
++    ...row,
++    raw_payload: JSON.parse(row.raw_payload),
++    score_reasons: JSON.parse(row.score_reasons),
++  };
++}
++
++rawSignalsReviewRouter.get(
++  "/raw-signals",
++  asyncHandler(async (req: Request, res: Response) => {
++    const status = typeof req.query.status === "string" ? req.query.status : undefined;
++    const minScore = req.query.min_score ? Number(req.query.min_score) : undefined;
++    const rows = repo.listRawSignals({ status, minScore });
++    res.json({ raw_signals: rows.map(serializeRawSignal) });
++  })
++);
++
++rawSignalsReviewRouter.get(
++  "/raw-signals/:id",
++  asyncHandler(async (req: Request, res: Response) => {
++    const row = repo.getRawSignalById(Number(req.params.id));
++    if (!row) return res.status(404).json({ error: "Raw signal not found" });
++    res.json({ raw_signal: serializeRawSignal(row) });
++  })
++);
++
++rawSignalsReviewRouter.post(
++  "/raw-signals/:id/qualify",
++  asyncHandler(async (req: Request, res: Response) => {
++    const row = repo.getRawSignalById(Number(req.params.id));
++    if (!row) return res.status(404).json({ error: "Raw signal not found" });
++    repo.setRawSignalStatus(row.id, "qualified", req.body?.notes);
++    res.json({ raw_signal: serializeRawSignal(repo.getRawSignalById(row.id)!) });
++  })
++);
++
++rawSignalsReviewRouter.post(
++  "/raw-signals/:id/dismiss",
++  asyncHandler(async (req: Request, res: Response) => {
++    const row = repo.getRawSignalById(Number(req.params.id));
++    if (!row) return res.status(404).json({ error: "Raw signal not found" });
++    repo.setRawSignalStatus(row.id, "dismissed", req.body?.notes);
++    res.json({ raw_signal: serializeRawSignal(repo.getRawSignalById(row.id)!) });
++  })
++);
+diff --git a/src/server.ts b/src/server.ts
+index 4eec7cf..ae4258c 100644
+--- a/src/server.ts
++++ b/src/server.ts
+@@ -7,6 +7,7 @@ import "./db"; // ensure schema is initialized on boot
+ import { ingestRouter } from "./routes/ingest";
+ import { sequencesRouter } from "./routes/sequences";
+ import { miscRouter } from "./routes/misc";
++import { rawSignalIngestRouter, rawSignalsReviewRouter } from "./routes/rawSignals";
+ import { basicAuth } from "./lib/basicAuth";
+ 
+ const app = express();
+@@ -20,10 +21,12 @@ app.use(express.json({ limit: "2mb" }));
+ // by Clay's webhook / the platform health checker, not a browser, and use
+ // their own existing shared-secret/none mechanisms. See lib/basicAuth.ts.
+ app.use("/api", ingestRouter);
++app.use("/api", rawSignalIngestRouter);
+ app.use("/api", miscRouter);
+ app.get("/health", (_req, res) => res.json({ status: "ok" }));
+ 
+ app.use("/api", basicAuth, sequencesRouter);
++app.use("/api", basicAuth, rawSignalsReviewRouter);
+ 
+ app.use(basicAuth, express.static(path.join(__dirname, "..", "src", "public")));
+ 
+diff --git a/src/types.ts b/src/types.ts
+index ba10dd4..2d17b12 100644
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -103,6 +103,33 @@ export interface SignalRow {
+   status: SignalStatus;
+ }
+ 
++// --- Raw (pre-enrichment) signals ---
++//
++// These are cheap/free signal hits (e.g. from the Companies House scraper
++// under scripts/signal-sources/) captured BEFORE any contact-enrichment
++// spend. They live in their own table/queue, get a rule-based score, and
++// only the ones that clear a threshold are meant to be handed to Clay for
++// contact-find/enrich — see docs/raw-signal-pipeline.md for the full
++// design and the next-step plan for the Clay hand-off endpoint.
++export type RawSignalStatus = "new" | "qualified" | "dismissed" | "sent_to_clay";
++
++export interface RawSignalRow {
++  id: number;
++  external_id: string;
++  source: string; // e.g. "companies_house", "job_board_scan"
++  raw_payload: string; // JSON text, the full payload as received
++  received_at: string;
++  company_name: string | null;
++  signal_type: string | null;
++  trigger_detail: string | null;
++  trigger_date: string | null;
++  score: number;
++  score_reasons: string; // JSON text, string[]
++  status: RawSignalStatus;
++  reviewed_at: string | null;
++  reviewer_notes: string | null;
++}
++
+ export interface SequenceRow {
+   id: number;
+   signal_id: number;
+-- 
+2.43.0
+

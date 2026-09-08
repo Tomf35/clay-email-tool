@@ -9,3 +9,4 @@ data/
 *.log
 *.png
 .DS_Store
+scripts/signal-sources/.seen-filings.json

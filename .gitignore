@@ -11,3 +11,4 @@ data/
 .DS_Store
 scripts/signal-sources/.seen-filings.json
 scripts/signal-sources/.stream-timepoint.json
+scripts/signal-sources/.seen-news-articles.json

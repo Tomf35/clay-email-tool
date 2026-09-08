@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "scan:companies-house-funding": "ts-node scripts/signal-sources/companies-house-funding.ts",
-    "scan:companies-house-stream": "ts-node scripts/signal-sources/companies-house-stream-funding.ts"
+    "scan:companies-house-stream": "ts-node scripts/signal-sources/companies-house-stream-funding.ts",
+    "scan:google-news-funding": "ts-node scripts/signal-sources/google-news-funding-rss.ts"
   },
   "license": "UNLICENSED",
   "dependencies": {

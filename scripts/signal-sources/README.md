@@ -46,3 +46,34 @@ so this saves Clay credits but doesn't get hosting to zero.
 See the comments at the top of the script for the full breakdown,
 including what's rough about this mockup (timepoint persistence,
 reconnect handling, no backoff) before running it unattended for real.
+
+## google-news-funding-rss.ts
+
+The zero-setup option: polls a Google News RSS search for UK funding
+coverage — no API key, no registration, nothing to set up beyond the
+ingest endpoint/secret you already have. Runs as a one-shot script like
+`companies-house-funding.ts` (schedule it via cron), not a persistent
+connection, so no extra hosting cost either.
+
+**The tradeoff:** this is unstructured text, not structured data. The
+company name is a best-effort regex guess at the headline's subject —
+tested against sample headlines including a genuine false positive
+("Government raises concerns over funding gap...", which isn't a company
+raising money at all). Setting `COMPANIES_HOUSE_API_KEY` (optional, same
+free key as the other two scripts) turns on a real UK-company check: a
+name that doesn't resolve to an active UK company gets skipped rather
+than posted, which is exactly what catches cases like that. Without the
+key, every extracted name is posted unresolved for a human to judge.
+
+Also worth knowing: press mostly covers rounds worth writing about, so
+this will skew toward bigger/more notable raises and likely miss the
+small, quiet SME rounds a Companies House filing would catch regardless
+of whether anyone wrote about it. Treat this as a complement to the other
+two scripts, not a replacement, if quiet small-company rounds matter to
+your ICP.
+
+Parsing/extraction was verified against a realistic sample RSS feed
+(see the script's comments) rather than a live fetch — this sandbox's
+network policy blocks news.google.com outright, so the live fetch itself
+is untested from here. It should work unmodified from your machine or
+Render, but run it once manually first to confirm before scheduling it.

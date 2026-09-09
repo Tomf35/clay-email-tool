@@ -21,6 +21,18 @@ function fmtDate(iso) {
   }
 }
 
+// UK date format, date only (no time) — dd/mm/yy. Used for trigger_date in
+// the Raw Signals table rather than the full ISO timestamp.
+function fmtUkDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+}
+
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
   return String(str)
@@ -481,7 +493,7 @@ function renderRawSignals(rows) {
       <td>${escapeHtml(r.company_name || "—")}</td>
       <td>${escapeHtml(r.signal_type || "—")}</td>
       <td>${escapeHtml(r.trigger_detail || "—")}</td>
-      <td>${escapeHtml(r.trigger_date || "—")}</td>
+      <td>${escapeHtml(fmtUkDate(r.trigger_date) || "—")}</td>
       <td>${escapeHtml(r.source || "—")}</td>
       <td><span class="badge badge-${r.status}">${r.status}</span></td>
       <td class="row-actions">

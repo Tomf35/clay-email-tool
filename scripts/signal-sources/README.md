@@ -55,15 +55,30 @@ ingest endpoint/secret you already have. Runs as a one-shot script like
 `companies-house-funding.ts` (schedule it via cron), not a persistent
 connection, so no extra hosting cost either.
 
-**The tradeoff:** this is unstructured text, not structured data. The
-company name is a best-effort regex guess at the headline's subject —
-tested against sample headlines including a genuine false positive
-("Government raises concerns over funding gap...", which isn't a company
-raising money at all). Setting `COMPANIES_HOUSE_API_KEY` (optional, same
-free key as the other two scripts) turns on a real UK-company check: a
-name that doesn't resolve to an active UK company gets skipped rather
-than posted, which is exactly what catches cases like that. Without the
-key, every extracted name is posted unresolved for a human to judge.
+**The tradeoff:** this is unstructured text, not structured data. Company
+name extraction improved significantly after testing against a real day's
+worth of headlines (it now strips filler words like "UK startup" / "British
+AI datacentre firm" to land on the actual name — "SatVu" instead of "UK
+thermal intelligence startup SatVu" — see the script's comments for the
+approach) but it's still a heuristic, not real NER, and will occasionally
+be wrong or empty. A genuine remaining false positive: "Government raises
+concerns over funding gap..." extracts as "Government", which isn't a
+company at all. Setting `COMPANIES_HOUSE_API_KEY` (optional, same free key
+as the other two scripts) turns on a real UK-company check: a name that
+doesn't resolve to an active UK company gets skipped rather than posted,
+which is exactly what catches cases like that. Without the key, every
+extracted name is posted unresolved for a human to judge.
+
+**A known gap in that Companies House check, worth knowing before trusting
+"qualified" at face value:** it takes the top search-by-name result and
+treats it as correct if that company is active — it does NOT verify the
+resolved company's actual name is close to what was extracted. For a
+short or generic extracted name this can resolve to the wrong (but real)
+company. Spot-check a few `company_signal_source` links in the Raw
+Signals UI against their headlines before trusting this at scale; a
+name-similarity check between the extraction and the resolved company is
+the natural next improvement if that turns out to be a real problem in
+practice.
 
 Also worth knowing: press mostly covers rounds worth writing about, so
 this will skew toward bigger/more notable raises and likely miss the

@@ -18,11 +18,17 @@
  *
  * THE TRADEOFF (read before relying on it)
  * - This is unstructured text, not structured data. The "company name" is
- *   a best-effort regex guess at the subject of the headline — it WILL
- *   occasionally be wrong (e.g. it picks up an investor's name instead of
- *   the company's, or mis-splits an unusual headline shape). Treat
- *   `company_name` as a strong hint for a human reviewer, not a verified
- *   fact the way a Companies House company number is.
+ *   a best-effort heuristic guess at the headline's subject: it splits on
+ *   the funding verb, then walks backward from there stripping known
+ *   filler words (nationality/sector descriptors like "UK startup",
+ *   "British AI datacentre firm") to land on the actual proper-noun name
+ *   ("UK thermal intelligence startup SatVu secures..." -> "SatVu", not
+ *   the whole phrase). It WILL still occasionally be wrong or empty (e.g.
+ *   a genuinely nameless headline, an investor's name where the article
+ *   never actually states the funded company's name, or an unusual
+ *   headline shape the stoplist doesn't cover). Treat `company_name` as a
+ *   strong hint for a human reviewer, not a verified fact the way a
+ *   Companies House company number is.
  * - Coverage bias: press mostly covers rounds worth writing about. This
  *   will skew toward bigger/more notable raises and likely UNDER-catches
  *   the small, quiet SME rounds that Companies House filings pick up
@@ -155,8 +161,47 @@ function parseRssItems(xml: string): RssItem[] {
   return items;
 }
 
-// Google News RSS titles are typically "<Company> <verb> <amount> ... - <Source>".
-// Strips the " - <Source>" suffix, then splits on the first funding verb.
+// Words/phrases that routinely appear immediately BEFORE the real company
+// name in a funding headline ("UK startup Veridue raises...", "British AI
+// datacentre firm Nscale raises...") — the actual name is what's left
+// after stripping these off the end of the pre-verb phrase, not the whole
+// phrase itself. Not exhaustive (no stoplist of nationalities/sectors ever
+// is), but covers the shapes that showed up repeatedly in real headlines
+// during testing. Matched case-insensitively, word by word from the end.
+const NAME_PREFIX_STOPWORDS = new Set([
+  "uk", "u.k.", "u.k", "us", "u.s.", "eu", "british", "european", "london-based",
+  "manchester-based", "uk-based", "us-based",
+  "startup", "startup's", "company", "firm", "platform", "app", "founder",
+  "founders", "unicorn", "scale-up", "scaleup", "spin-out", "spinout",
+  "group", "team", "based",
+  "the", "a", "an", "of", "for", "behind", "from", "at", "in", "on", "with", "by",
+]);
+
+// A token counts as "generic sector word" if it ends in a common -tech/
+// -health/-bio suffix used as a standalone descriptor (fintech, healthtech,
+// insurtech, proptech, edtech, biotech) rather than as part of the actual
+// company name itself.
+const GENERIC_SECTOR_SUFFIX = /^[a-z]+(tech|health|bio)$/i;
+
+function isNamePrefixFiller(word: string): boolean {
+  const clean = word.toLowerCase().replace(/[^a-z0-9.'-]/g, "");
+  return NAME_PREFIX_STOPWORDS.has(clean) || GENERIC_SECTOR_SUFFIX.test(clean);
+}
+
+// Google News RSS titles are typically "<descriptor words> <Company> <verb>
+// <amount> ... - <Source>". Strips the " - <Source>" suffix, splits on the
+// first funding verb to get the pre-verb phrase, then walks that phrase
+// BACKWARD from the verb collecting words for as long as they look like
+// part of a proper-noun company name (capitalized, and not a known filler
+// word/generic sector descriptor) — the company name is almost always the
+// tail end of that phrase, not the whole thing. E.g. "UK thermal
+// intelligence startup SatVu" -> "SatVu", not the full phrase.
+//
+// This is still a heuristic, not real named-entity recognition — it will
+// occasionally mis-split an unusual headline shape (multi-word brand names
+// with no capital letters, e.g. "monzo", would still be missed; a
+// perfectly capitalized filler phrase could still slip through). Treat a
+// non-empty result as a strong hint, not a verified fact.
 function extractCompanyName(title: string): string | undefined {
   const withoutSource = title.replace(/\s+-\s+[^-]+$/, "").trim();
   const lower = withoutSource.toLowerCase();
@@ -166,7 +211,23 @@ function extractCompanyName(title: string): string | undefined {
     if (idx !== -1 && (bestIndex === -1 || idx < bestIndex)) bestIndex = idx;
   }
   if (bestIndex === -1) return undefined;
-  const name = withoutSource.slice(0, bestIndex).trim();
+
+  const prefix = withoutSource.slice(0, bestIndex).trim();
+  const words = prefix.split(/\s+/).filter(Boolean);
+
+  const nameWords: string[] = [];
+  for (let i = words.length - 1; i >= 0; i--) {
+    const word = words[i];
+    if (isNamePrefixFiller(word)) break;
+    // A company-name word should start with a capital letter (allows
+    // "SatVu", "All3", "iZettle"-style leading-lowercase-letter brands are
+    // the one real gap here — see the function comment above).
+    if (!/^[A-Z0-9]/.test(word)) break;
+    nameWords.unshift(word);
+    if (nameWords.length >= 4) break; // cap runaway matches
+  }
+
+  const name = nameWords.join(" ").trim();
   return name || undefined;
 }
 
